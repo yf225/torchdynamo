@@ -43,8 +43,9 @@ cd torchdynamo_yf225
 # fix the version of black so `make format` / `make lint` work
 make lint-deps
 
-# make sure it works
-cd benchmarks/
-./torchbench.py --inductor --fast --devices cuda
+# Run benchmark  # --verbose
+./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --inductor
+./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --inductor-dynamic
+# TODO: study what the result means
 
 # TODO: then, run all ranking models with Triton vs. NVFuser (see VERY_SLOW_BENCHMARKS in dynamo repo)
