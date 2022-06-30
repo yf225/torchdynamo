@@ -1,6 +1,6 @@
 # Keep this branch in sync with https://github.com/jansel/torchdynamo/ "inductor" branch.
 
-# For benchmark, use https://github.com/yf225/benchmark repo (which is essentially the same as https://github.com/jansel/benchmark).
+# For benchmark, use https://github.com/fairinternal/torchbench.
 
 -------
 
