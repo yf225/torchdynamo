@@ -31,7 +31,7 @@ for torchbench_dir in (
 ):
     if exists(torchbench_dir):
         break
-assert exists(torchbench_dir), "../../torchbenchmark does not exist"
+assert exists(torchbench_dir), f"{torchbench_dir} does not exist"
 original_dir = abspath(os.getcwd())
 torchbench_dir = abspath(torchbench_dir)
 os.chdir(torchbench_dir)

@@ -44,6 +44,7 @@ cd torchdynamo_yf225
 make lint-deps
 
 # make sure it works
+cd benchmarks/
 ./torchbench.py --fast
 
 # TODO: then, run all ranking models with Triton vs. NVFuser (see VERY_SLOW_BENCHMARKS in dynamo repo)
