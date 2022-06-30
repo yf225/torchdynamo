@@ -43,6 +43,12 @@ USE_SMALL_BATCH_SIZE = {
     "densenet121": 4,
     "hf_Reformer": 4,
     "timm_efficientdet": 1,
+    "ctr_mbl_feed_30x_dense_over": 512,
+    "ctr_mbl_feed_30x_over": 512,
+    "dhen_5x_dense_over": 512,
+    "dhen_5x_over": 512,
+    "inline_cvr_7x_dense_over": 512,
+    "inline_cvr_7x_over": 512,
 }
 
 
