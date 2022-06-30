@@ -22,14 +22,8 @@ torch.backends.cuda.matmul.allow_tf32 = True
 
 os.environ["KALDI_ROOT"] = "/tmp"  # avoids some spam
 for torchbench_dir in (
-    # "../benchmark_yf225",
-    "../benchmark_jansel",
-    # "../torchbenchmark",
-    # "../torchbench",
-    # "../benchmark",
-    # "../../torchbenchmark",
-    # "../../torchbench",
-    # "../../benchmark",
+    "../torchbench",
+    "../../torchbench",
 ):
     if exists(torchbench_dir):
         break
@@ -283,7 +277,6 @@ class TorchBenchmarkRunner(BenchmarkRunner):
 
         for model_path in _list_model_paths():
             model_name = os.path.basename(model_path)
-            print(f"model_name: {model_name}")
             if not ("ctr_mbl_feed" in model_name or "dhen" in model_name or "inline_cvr" in model_name):
                 continue
 
