@@ -24,6 +24,8 @@ os.environ["KALDI_ROOT"] = "/tmp"  # avoids some spam
 for torchbench_dir in (
     "../torchbench",
     "../../torchbench",
+    "../torchbench_yf225",
+    "../../torchbench_yf225",
 ):
     if exists(torchbench_dir):
         break
