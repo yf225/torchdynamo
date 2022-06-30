@@ -45,7 +45,7 @@ make lint-deps
 
 # Run benchmark  # --verbose
 ./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --inductor
-./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --inductor-dynamic
+./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --nvfuser --speedup-ts
 # TODO: study what the result means
 
 # TODO: then, run all ranking models with Triton vs. NVFuser (see VERY_SLOW_BENCHMARKS in dynamo repo)
