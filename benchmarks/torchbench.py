@@ -282,6 +282,7 @@ class TorchBenchmarkRunner(BenchmarkRunner):
 
         for model_path in _list_model_paths():
             model_name = os.path.basename(model_path)
+            print(f"model_name: {model_name}")
             if not ("ctr_mbl_feed" in model_name or "dhen" in model_name or "inline_cvr" in model_name):
                 continue
 
