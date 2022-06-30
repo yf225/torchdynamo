@@ -38,14 +38,18 @@ export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 # In fairinternal torchbench repo
 # python install.py
 
-cd torchdynamo_yf225
+cd $HOME_DIR/torchdynamo_yf225
 
 # fix the version of black so `make format` / `make lint` work
 make lint-deps
 
 # Run benchmark  # --verbose
-./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --inductor
-./benchmarks/torchbench.py --devices cuda --float32 --isolate --randomize-input --use-eval-mode --nvfuser --speedup-ts
+# Reference: https://github.com/jansel/torchdynamo/blob/5d4ff33e680005dba6dccbb7a53e7afd45de196a/Makefile#L148
+./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor
+./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser
+
+
+
 # TODO: study what the result means
 
 # TODO: then, run all ranking models with Triton vs. NVFuser (see VERY_SLOW_BENCHMARKS in dynamo repo)
