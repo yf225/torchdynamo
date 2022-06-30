@@ -35,7 +35,7 @@ export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 # pip install -r requirements.txt
 # python setup.py develop
 
-# In torchbench repo
+# In fairinternal torchbench repo
 # python install.py
 
 cd torchdynamo_yf225
