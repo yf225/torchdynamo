@@ -282,12 +282,15 @@ class TorchBenchmarkRunner(BenchmarkRunner):
 
         for model_path in _list_model_paths():
             model_name = os.path.basename(model_path)
-            if (
-                not re.search("|".join(args.filter), model_name, re.I)
-                or re.search("|".join(args.exclude), model_name, re.I)
-                or model_name in SKIP
-            ):
+            if not ("ctr_mbl_feed" in model_name or "dhen" in model_name or "inline_cvr" in model_name):
                 continue
+
+            # if (
+            #     not re.search("|".join(args.filter), model_name, re.I)
+            #     or re.search("|".join(args.exclude), model_name, re.I)
+            #     or model_name in SKIP
+            # ):
+            #     continue
 
             yield model_name
 
