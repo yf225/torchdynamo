@@ -29,11 +29,21 @@ source /data/home/willfeng/setup_efa.sh
 export CUDA_HOME=/usr/local/cuda-11.4
 export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 
-
 # First time
 # pip3 install --pre torch torchtext torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cu113
+# cd ~/torchdynamo
+# pip install -r requirements.txt
+# python setup.py develop
 
-# Install TorchDynamo
-cd ~/torchdynamo
-pip install -r requirements.txt
-python setup.py develop
+# In torchbench repo
+# python install.py
+
+cd torchdynamo_yf225
+
+# fix the version of black so `make format` / `make lint` work
+make lint-deps
+
+# make sure it works
+./torchbench.py --fast
+
+# TODO: then, run all ranking models with Triton vs. NVFuser (see VERY_SLOW_BENCHMARKS in dynamo repo)
