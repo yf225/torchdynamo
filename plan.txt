@@ -28,3 +28,12 @@ source /data/shared/bin/cluster_env_new.sh
 source /data/home/willfeng/setup_efa.sh
 export CUDA_HOME=/usr/local/cuda-11.4
 export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
+
+
+# First time
+# pip3 install --pre torch torchtext torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cu113
+
+# Install TorchDynamo
+cd ~/torchdynamo
+pip install -r requirements.txt
+python setup.py develop
