@@ -45,6 +45,12 @@ make lint-deps
 
 # Run benchmark  # --verbose
 # Reference: https://github.com/jansel/torchdynamo/blob/5d4ff33e680005dba6dccbb7a53e7afd45de196a/Makefile#L148
+
+# Training
+./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor --training
+./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser --training
+
+# Inference
 ./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor
 ./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser
 
