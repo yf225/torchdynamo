@@ -85,6 +85,6 @@ class triton:
     autotune = True
 
     # enable codegen to use Triton's mm
-    use_mm = True  # False
+    use_mm = False
 
     use_bmm = False
