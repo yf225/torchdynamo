@@ -61,7 +61,7 @@ class triton:
     cudagraphs = True
 
     # Monkey patching to lower overheads
-    hackery = False
+    hackery = True  # False
 
     # choose conv backend, "aten" or "triton" or "autotune"
     convolution = "aten"
@@ -85,6 +85,6 @@ class triton:
     autotune = True
 
     # enable codegen to use Triton's mm
-    use_mm = False
+    use_mm = True  # False
 
-    use_bmm = False
+    use_bmm = True  # False
