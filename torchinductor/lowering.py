@@ -571,38 +571,6 @@ def bmm(a: TensorBox, b: TensorBox):
     return TensorBox.create(ir.BatchMatrixMultiply.create(a, b))
 
 
-@register_lowering(aten._embedding_bag, type_promote=False)
-def _embedding_bag(
-    weight,
-    indices,
-    offsets,
-    scale_grad_by_freq=False,
-    mode=0,
-    sparse=False,
-    per_sample_weights=None,
-    include_last_offset=False,
-):
-    kernel = (
-        aten._embedding_bag_forward_only if config.forward_only else aten._embedding_bag
-    )
-    return list(
-        map(
-            TensorBox.create,
-            ir.FallbackKernel.create(
-                kernel,
-                weight,
-                indices,
-                offsets,
-                scale_grad_by_freq,
-                mode,
-                False,  # TODO(jansel): support sparse
-                per_sample_weights,
-                include_last_offset,
-            ),
-        )
-    )
-
-
 def make_fallback(kernel):
     add_needs_realized_inputs(kernel)
 
@@ -697,6 +665,8 @@ make_fallback(aten.convolution_backward)
 make_fallback(aten._cudnn_rnn)
 make_fallback(aten._cudnn_rnn_backward)
 make_fallback(aten.cumsum)
+make_fallback(aten._embedding_bag)
+make_fallback(aten._embedding_bag_forward_only)
 make_fallback(aten._fused_moving_avg_obs_fq_helper)
 make_fallback(aten.grid_sampler_2d)
 make_fallback(aten.native_batch_norm_backward)
