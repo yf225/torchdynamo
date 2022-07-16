@@ -233,7 +233,7 @@ def count_tangents(fx_g: torch.fx.GraphModule):
     return len(static_arg_idxs)
 
 
-def compile_fx(model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]):
+def compile_fx_aot(model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]):
     """Main entrypoint to a compile given FX graph"""
     model_ = normalize_ir(model_, example_inputs_)
     num_example_inputs = len(example_inputs_)
@@ -254,3 +254,11 @@ def compile_fx(model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]
         decompositions=decompositions,
         partition_fn=min_cut_rematerialization_partition,
     )
+
+
+def compile_fx(model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]):
+    """Main entrypoint to a compile given FX graph"""
+    if config.aot_autograd:
+        return compile_fx_aot(model_, example_inputs_)
+    else:
+        return compile_fx_python_key(model_, example_inputs_)
