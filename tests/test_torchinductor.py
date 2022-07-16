@@ -1153,6 +1153,15 @@ class CommonTemplate:
             (torch.randn([16, 16]),),
         )
 
+    def test_sin(self):
+        def fn(x):
+            return aten.sin(x) + 2, aten.sin(x + 1)
+
+        self.common(
+            fn,
+            (torch.randn([16, 16]),),
+        )
+
     def test_repeat(self):
         def fn(x):
             return (
@@ -1218,6 +1227,7 @@ class CommonTemplate:
 
     @requires_cuda()
     @patch.object(config.triton, "convolution", "triton")
+    @patch.object(config.triton, "dense_indexing", "True")
     def test_triton_conv(self):
         @torchdynamo.optimize("inductor", nopython=True)
         def triton_conv(
@@ -1244,6 +1254,7 @@ class CommonTemplate:
 
     @requires_cuda()
     @patch.object(config.triton, "convolution", "autotune")
+    @patch.object(config.triton, "dense_indexing", "True")
     def test_conv_autotune(self):
         @torchdynamo.optimize("inductor", nopython=True)
         def triton_conv(

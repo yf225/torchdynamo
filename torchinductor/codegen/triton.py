@@ -124,6 +124,10 @@ class TritonOverrides(OpOverrides):
         return f"tl.cos({x})"
 
     @staticmethod
+    def sin(x):
+        return f"tl.sin({x})"
+
+    @staticmethod
     def index_expr(expr, dtype):
         return V.kernel.indexing(expr)[0]
 
@@ -552,16 +556,18 @@ class TritonKernel(Kernel):
 
     def simplify_indexing(self, expr: sympy.Expr):
         expr = V.graph.sizevars.simplify_with_ranges(expr, self.var_ranges())
+        sorted_expr_symbols = sorted(expr.free_symbols, key=lambda s: s.name)
         nodes = [
             self.range_tree_nodes[sym]
-            for sym in expr.free_symbols
+            for sym in sorted_expr_symbols
             if sym in self.range_tree_nodes
         ]
         if nodes:
             nodes.sort(key=lambda x: x.depth)
             expr = nodes[-1].simplify(expr)
+            sorted_expr_symbols = sorted(expr.free_symbols, key=lambda s: s.name)
 
-        for sym in expr.free_symbols:
+        for sym in sorted_expr_symbols:
             if sym in self.range_tree_nodes:
                 self.range_tree_nodes[sym].codegen()
 
@@ -593,7 +599,6 @@ class TritonKernel(Kernel):
 
         if not self.inside_reduction or "rmask" not in mask:
             self.outside_loop_vars.add(tmp)
-
         return tmp
 
     def store(self, name, index, value, mode=None):
@@ -806,6 +811,19 @@ class TritonScheduling:
 
     def group_fn(self, sizes):
         return tuple(V.graph.sizevars.simplify(sympy_product(s)) for s in sizes)
+
+    def group_fn_NHW_C(self, sizes):
+        # group to size of NHW, C for 4d tensor
+        group = ()
+        for s in sizes:
+            if len(s) == 4:
+                group += (
+                    V.graph.sizevars.simplify(sympy_product([s[0], s[2], s[3]])),
+                    s[1],
+                )
+            else:
+                group += (V.graph.sizevars.simplify(sympy_product(s)),)
+        return group
 
     def codegen(self, *groups):
         wrapper = V.graph.wrapper_code
