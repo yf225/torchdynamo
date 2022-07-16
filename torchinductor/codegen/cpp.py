@@ -148,6 +148,10 @@ class CppOverrides(OpOverrides):
         return f"std::floor({x})"
 
     @staticmethod
+    def ceil(x):
+        return f"std::ceil({x})"
+
+    @staticmethod
     def trunc(x):
         return f"std::trunc({x})"
 
@@ -210,8 +214,12 @@ class CppOverrides(OpOverrides):
         return var
 
     @staticmethod
-    def and_(a, b):
+    def logical_and(a, b):
         return f"{a} && {b}"
+
+    @staticmethod
+    def logical_or(a, b):
+        return f"{a} || {b}"
 
     @staticmethod
     def rand_cpu(seed: sympy.Expr, dtype):

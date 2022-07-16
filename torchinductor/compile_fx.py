@@ -103,7 +103,7 @@ def dump_to_repro(gm, *args):
 def compile_fx_python_key(
     model: torch.fx.GraphModule, example_inputs: List[torch.Tensor], cudagraphs=None
 ):
-    """Main entrypoint to a compile given FX graph"""
+    """Alternate version for inference only"""
     assert isinstance(model, torch.fx.GraphModule)
     assert all(isinstance(x, torch.Tensor) for x in example_inputs)
 
@@ -234,11 +234,12 @@ def count_tangents(fx_g: torch.fx.GraphModule):
 
 
 def compile_fx(model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]):
+    """Main entrypoint to a compile given FX graph"""
     model_ = normalize_ir(model_, example_inputs_)
+    num_example_inputs = len(example_inputs_)
 
     def fw_compiler(model: torch.fx.GraphModule, example_inputs):
-        # model.graph.print_tabular()
-        fixed = len(example_inputs) - len(example_inputs_)
+        fixed = len(example_inputs) - num_example_inputs
         return compile_fx_inner(model, example_inputs, num_fixed=fixed)
 
     def bw_compiler(model: torch.fx.GraphModule, example_inputs):

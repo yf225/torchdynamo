@@ -153,12 +153,14 @@ def check_model(self: TestCase, model, example_inputs, tol=1e-4, check_lowp=True
 
     torchinductor.metrics.reset()
 
-    @torchdynamo.optimize_assert(functools.partial(compile_fx, cudagraphs=False))
+    @torchdynamo.optimize_assert(compile_fx)
     def run(*ex):
         return model(*ex)
 
     torchdynamo.reset()
-    with unittest.mock.patch("torchdynamo.config.raise_on_backend_error", True):
+    with patch("torchdynamo.config.raise_on_backend_error", True), patch(
+        "torchinductor.config.triton.cudagraphs", False
+    ):
         torch.manual_seed(0)
         actual = run(*example_inputs)
 
@@ -1721,7 +1723,7 @@ class CommonTemplate:
 
         self.common(fn, (torch.randn([2, 4, 37, 38]),))
 
-    def test_upsample_bilinear2d(self):
+    def test_upsample_bilinear2d_a(self):
         def fn(a):
             return (
                 aten.upsample_bilinear2d(a, [45, 45], False, None),
@@ -1729,6 +1731,17 @@ class CommonTemplate:
             )
 
         self.common(fn, (torch.randn([2, 4, 37, 38]),))
+
+    def test_upsample_bilinear2d_b(self):
+        def fn(a):
+            return aten.upsample_bilinear2d(a, None, True, [2.0, 2.0])
+
+        self.common(
+            fn,
+            [
+                torch.randn([1, 2, 40, 59]),
+            ],
+        )
 
     def test_reflection_pad2d(self):
         def fn(a):
