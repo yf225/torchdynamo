@@ -1754,6 +1754,22 @@ class CommonTemplate:
             fn, (torch.randint(0, 999, size=[1, 1, 8, 8], dtype=torch.float32),)
         )
 
+    def test_grid_sampler_2d(self):
+        def fn(a, b):
+            return (
+                aten.grid_sampler_2d(a, b, 0, 0, True),
+                aten.grid_sampler_2d(a, b, 0, 1, False),
+            )
+
+        self.common(
+            fn,
+            (
+                torch.randn([4, 3, 352, 352], dtype=torch.float32),
+                torch.rand([4, 352, 352, 2], dtype=torch.float32) * 2 - 1,
+            ),
+            check_lowp=False,
+        )
+
     def test_sort(self):
         def fn(a):
             return torch.sort(a)

@@ -112,6 +112,7 @@ class CppOverrides(OpOverrides):
 
     @staticmethod
     def to_dtype(x, dtype):
+        assert dtype in DTYPE_TO_CPP, f"{dtype} missing from {__name__}.DTYPE_TO_CPP"
         return f"static_cast<{DTYPE_TO_CPP[dtype]}>({x})"
 
     @staticmethod
