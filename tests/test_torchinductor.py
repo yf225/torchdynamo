@@ -378,6 +378,12 @@ class CommonTemplate:
 
         self.common(fn, (torch.randn(17),))
 
+    def test_sgn(self):
+        def fn(a):
+            return torch.sgn(a), torch.sgn(a+1)-1
+
+        self.common(fn, [torch.linspace(-10, 10, 41)])
+
     def test_max_min(self):
         def fn(a, b):
             return (torch.maximum(a, b), torch.minimum(a, b))
