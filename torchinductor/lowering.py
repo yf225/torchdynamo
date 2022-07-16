@@ -609,51 +609,63 @@ else:
     # native_dropout handled in decomps
     # bernoulli_ handled in decomps
 
-    @register_lowering(aten.rand)
-    def rand(
-        *size, dtype=None, layout=0, device=None, pin_memory=False, memory_format=None
-    ):
-        logging.warning("using triton random, expect difference from eager")
-        assert not pin_memory
-        assert layout in (0, torch.strided)
-        assert memory_format in (None, torch.contiguous_format)
-        device = decode_device(device)
-        dtype = dtype or torch.get_default_dtype()
-        if len(size) == 1 and isinstance(size[0], (list, tuple, torch.Size)):
-            size = tuple(size[0])
-        size = [sympy.expand(s) for s in size]
-        offset = V.graph.increment_randomness_offset(sympy_product(size))
+    def make_rand(fn_name):
+        def rand_or_randn(
+            *size,
+            dtype=None,
+            layout=0,
+            device=None,
+            pin_memory=False,
+            memory_format=None,
+        ):
+            logging.warning("using triton random, expect difference from eager")
+            assert not pin_memory
+            assert layout in (0, torch.strided)
+            assert memory_format in (None, torch.contiguous_format)
+            device = decode_device(device)
+            dtype = dtype or torch.get_default_dtype()
+            if len(size) == 1 and isinstance(size[0], (list, tuple, torch.Size)):
+                size = tuple(size[0])
+            size = [sympy.expand(s) for s in size]
+            offset = V.graph.increment_randomness_offset(sympy_product(size))
 
-        if device.type == "cuda":
-            random_pos = ir.FixedLayout(
-                device,
-                dtype,
-                size,
-                ir.FlexibleLayout.contiguous_strides(size),
-                offset=offset,
-            ).make_indexer()
-            seed_buffer = V.graph.random_seed_buffer(device)
+            if device.type == "cuda":
+                random_pos = ir.FixedLayout(
+                    device,
+                    dtype,
+                    size,
+                    ir.FlexibleLayout.contiguous_strides(size),
+                    offset=offset,
+                ).make_indexer()
+                seed_buffer = V.graph.random_seed_buffer(device)
 
-            def inner_fn(index):
-                return ops.rand(
-                    ops.load(seed_buffer, sympy.Integer(0)),
-                    ops.index_expr(random_pos(index), torch.int32),
-                )
+                def inner_fn(index):
+                    return getattr(ops, fn_name)(
+                        ops.load(seed_buffer, sympy.Integer(0)),
+                        ops.index_expr(random_pos(index), torch.int32),
+                    )
 
-        else:
-            # on CPU we use mt19937 which doesn't use the offset
-            # TODO(jansel): we should rewrite CPU RNG to be closer to cuda and deterministic
-            seed_var = V.graph.sizevars.seed()
+            else:
+                # on CPU we use mt19937 which doesn't use the offset
+                # TODO(jansel): we should rewrite CPU RNG to be closer to cuda and deterministic
+                seed_var = V.graph.sizevars.seed()
 
-            def inner_fn(index):
-                return ops.rand_cpu(ops.index_expr(seed_var, torch.int32), dtype)
+                def inner_fn(index):
+                    return getattr(ops, f"{fn_name}_cpu")(
+                        ops.index_expr(seed_var, torch.int32), dtype
+                    )
 
-        return Pointwise.create(
-            device=device,
-            dtype=dtype,
-            inner_fn=inner_fn,
-            ranges=list(size),
-        )
+            return Pointwise.create(
+                device=device,
+                dtype=dtype,
+                inner_fn=inner_fn,
+                ranges=list(size),
+            )
+
+        return rand_or_randn
+
+    rand = register_lowering([aten.rand, torch.rand])(make_rand("rand"))
+    randn = register_lowering([aten.randn, torch.randn])(make_rand("randn"))
 
 
 if has_torchvision_roi_align():
@@ -661,6 +673,7 @@ if has_torchvision_roi_align():
 
 # TODO(jansel): we should implement decomps for these
 make_fallback(aten._adaptive_avg_pool2d_backward)
+make_fallback(aten.argmax)
 make_fallback(aten.convolution_backward)
 make_fallback(aten._cudnn_rnn)
 make_fallback(aten._cudnn_rnn_backward)
@@ -756,8 +769,9 @@ def arange(
     )
 
 
-@register_lowering(torch.linspace)
-def linspace(start, end, steps, *, dtype=None, device=None):
+@register_lowering([torch.linspace, aten.linspace])
+def linspace(start, end, steps, *, dtype=None, device=None, pin_memory=False):
+    assert not pin_memory
     dtype = dtype or torch.get_default_dtype()
 
     step_size = (end - start) / (steps - 1)

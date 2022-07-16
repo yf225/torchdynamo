@@ -133,29 +133,30 @@ SLOW_BENCHMARKS = {
     "vision_maskrcnn",  # 99s
 }
 
-# https://github.com/pytorch/torchdynamo/issues/331
-PYTHON_KEY_NOT_YET_WORKING = {
-    # RuntimeError: expected scalar type Half but found Float
+# https://github.com/pytorch/torchdynamo/issues/519
+AOT_AUTOGRAD_NOT_YET_WORKING = {
+    # https://github.com/pytorch/functorch/issues/586
+    "tts_angular",
+    "demucs",
+    "tacotron2",  # also has an issue with normalize_ir
+    # https://github.com/pytorch/torchdynamo/issues/590
+    "pyhpc_isoneutral_mixing",
+    # https://github.com/pytorch/torchdynamo/issues/80
     "hf_BigBird",
-    # AttributeError: 'int' object has no attribute 'proxy'
+    # https://github.com/pytorch/pytorch/issues/81526
     "moco",
-    # AttributeError: 'Tensor' object has no attribute 'proxy'
+    # https://github.com/pytorch/pytorch/issues/81529
     "speech_transformer",
-    # torch.fx.proxy.TraceError: symbolically traced variables cannot be used as inputs to control flow
-    "tacotron2",
-    # requires training mode
-    "maml",
 }
 
-
 # https://github.com/pytorch/torchdynamo/issues/332
-TORCHINDUCTOR_NOT_YET_WORKING = {
-    *PYTHON_KEY_NOT_YET_WORKING,
+INDUCTOR_INFERENCE_NOT_YET_WORKING = {
+    *AOT_AUTOGRAD_NOT_YET_WORKING,
     # ValueError: tmpX is not defined
     "fastNLP_Bert",
     "vision_maskrcnn",
-    # LLVM ERROR: Broken function found, compilation aborted!
-    # torch.randn missing
+    "maml",
+    # randn, argmax, scatter
     "hf_Reformer",
     # as_strided issue
     "hf_Longformer",
@@ -163,6 +164,10 @@ TORCHINDUCTOR_NOT_YET_WORKING = {
     "timm_efficientdet",
 }
 
+
+INDUCTOR_TRAINING_NOT_YET_WORKING = {
+    *INDUCTOR_INFERENCE_NOT_YET_WORKING,
+}
 
 TRT_NOT_YET_WORKING = {
     "alexnet",
@@ -213,11 +218,14 @@ class TorchBenchmarkRunner(BenchmarkRunner):
 
     @property
     def failing_python_key_models(self):
-        return PYTHON_KEY_NOT_YET_WORKING
+        return AOT_AUTOGRAD_NOT_YET_WORKING | {"maml_omniglot", "moco"}
 
     @property
     def failing_torchinductor_models(self):
-        return TORCHINDUCTOR_NOT_YET_WORKING
+        if self.args.training:
+            return INDUCTOR_TRAINING_NOT_YET_WORKING
+        else:
+            return INDUCTOR_INFERENCE_NOT_YET_WORKING
 
     @property
     def failing_fx2trt_models(self):
@@ -293,21 +301,21 @@ class TorchBenchmarkRunner(BenchmarkRunner):
             return torch.no_grad()
 
     def get_tolerance(self, is_training, current_device, name):
-        tolerance = 1e-4
         # Increase the tolerance for torch allclose
-        if (
+        if self.args.float16 or (
             is_training
             and current_device == "cuda"
             and name in REQUIRE_HIGHER_TOLERANCE
         ):
-            tolerance = 1e-3
+            return 1e-3
         elif (
             is_training
             and current_device == "cuda"
             and name in REQUIRE_EVEN_HIGHER_TOLERANCE
         ):
-            tolerance = 8 * 1e-3
-        return tolerance
+            return 8 * 1e-3
+        else:
+            return 1e-4
 
     def compute_loss(self, pred):
         return reduce_to_scalar_loss(pred)

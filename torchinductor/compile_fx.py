@@ -100,7 +100,7 @@ def dump_to_repro(gm, *args):
         print("wrote repro.py")
 
 
-def compile_fx(
+def compile_fx_python_key(
     model: torch.fx.GraphModule, example_inputs: List[torch.Tensor], cudagraphs=None
 ):
     """Main entrypoint to a compile given FX graph"""
@@ -158,13 +158,6 @@ def compile_fx_inner(
             wrap(functools.partial(dump_to_repro, gm))(*example_inputs)
 
         raise
-
-
-def no_compile(
-    gm: torch.fx.GraphModule,
-    example_inputs: List[torch.Tensor],
-):
-    return gm.forward
 
 
 def cudagraphify(model, inputs, static_input_idxs=()):
@@ -240,9 +233,7 @@ def count_tangents(fx_g: torch.fx.GraphModule):
     return len(static_arg_idxs)
 
 
-def compile_fx_training(
-    model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]
-):
+def compile_fx(model_: torch.fx.GraphModule, example_inputs_: List[torch.Tensor]):
     model_ = normalize_ir(model_, example_inputs_)
 
     def fw_compiler(model: torch.fx.GraphModule, example_inputs):
