@@ -380,7 +380,7 @@ class CommonTemplate:
 
     def test_sgn(self):
         def fn(a):
-            return torch.sgn(a), torch.sgn(a+1)-1
+            return torch.sgn(a), torch.sgn(a + 1) - 1
 
         self.common(fn, [torch.linspace(-10, 10, 41)])
 
