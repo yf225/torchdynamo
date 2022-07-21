@@ -54,6 +54,7 @@ decompositions = get_decompositions(
         aten.native_group_norm,
         aten.native_layer_norm,
         aten.native_layer_norm_backward,
+        aten.nll_loss_backward,
         aten.norm,
         aten.reflection_pad2d_backward,
         aten.select_backward,
