@@ -192,6 +192,8 @@ INDUCTOR_TRAINING_NOT_YET_WORKING = {
     "mobilenet_v2_quantized_qat",
     # TypeError: expected Tensor as element 0 in argument 1, but got NoneType
     "dlrm",
+    # RuntimeError: The tensor has a non-zero number of elements,
+    "fastNLP_Bert",
     # RuntimeError: CUDA out of memory.
     "Background_Matting",
     "dhen_5x_over",
