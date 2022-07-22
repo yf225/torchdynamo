@@ -43,10 +43,12 @@ decompositions = get_decompositions(
         aten.l1_loss,
         aten.leaky_relu,
         aten.leaky_relu_backward,
+        aten._log_softmax,
         aten._log_softmax_backward_data,
         aten.logsumexp.default,
         aten.max_pool2d_with_indices_backward,
         aten.mse_loss,
+        aten.mse_loss_backward,
         aten.narrow,
         aten.native_batch_norm,
         aten.native_batch_norm_backward,
@@ -62,6 +64,7 @@ decompositions = get_decompositions(
         aten.sigmoid_backward,
         aten.silu_backward,
         aten.slice_backward,
+        aten._softmax,
         aten._softmax_backward_data,
         aten.stack,
         aten.tanh_backward,
@@ -97,26 +100,6 @@ def clamp(x, min=None, max=None):
     if max is not None:
         x = torch.minimum(x, torch.tensor(max, dtype=x.dtype, device=x.device))
     return x
-
-
-@register_decomposition([aten._softmax])
-def _softmax(x, dim, half_to_float):
-    # TODO(jansel): check numerical stability (see SoftMaxKernel.cpp)
-    if half_to_float and x.dtype in (torch.bfloat16, torch.float16):
-        x = x.to(torch.float32)
-    x = torch.exp(x)
-    x_sum = torch.sum(x, dim, keepdim=True)
-    scale = torch.reciprocal(x_sum)
-    return x * scale
-
-
-@register_decomposition([aten._log_softmax])
-def _log_softmax(x, dim, half_to_float):
-    # TODO(jansel): check numerical stability (see SoftMaxKernel.cpp)
-    if half_to_float and x.dtype in (torch.bfloat16, torch.float16):
-        x = x.to(torch.float32)
-    x_sum = torch.log(torch.sum(torch.exp(x), dim, keepdim=True))
-    return x - x_sum
 
 
 @register_decomposition([aten.t])
