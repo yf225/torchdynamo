@@ -2,7 +2,7 @@
 
 -------
 
-### Instructions:
+### Instructions ###
 
 export PATH="/opt/slurm/bin:$PATH"
 
