@@ -1,18 +1,14 @@
 # Keep this branch in sync with https://github.com/jansel/torchdynamo/ "inductor" branch.
 
-# For benchmark, use https://github.com/fairinternal/torchbench or https://github.com/yf225/torchbench
-
 -------
+
+### Instructions:
 
 export PATH="/opt/slurm/bin:$PATH"
 
-srun --nodes=1 --gpus-per-node=8 -p dev -t 12:00:00 --exclusive --pty /bin/bash -l
-srun --nodes=4 --gpus-per-node=8 -p train -t 12:00:00 --exclusive --pty /bin/bash -l
+srun --nodes=1 --gpus-per-node=8 -p dev -t 72:00:00 --exclusive --pty /bin/bash -l
+srun --nodes=4 --gpus-per-node=8 -p train -t 72:00:00 --exclusive --pty /bin/bash -l
 srun --nodes=8 --gpus-per-node=8 -p scavenge -t 72:00:00 --exclusive --pty /bin/bash -l
-srun --nodes=8 --gpus-per-node=8 -p mae -t 72:00:00 --exclusive --pty /bin/bash -l
-
-export HOME_DIR=/fsx-mae/$USER  # FAIR AWS cluster
-# export HOME_DIR=/fsx/users/$USER  # AI AWS cluster
 
 conda deactivate && conda deactivate && conda deactivate
 . /fsx/users/willfeng/conda/etc/profile.d/conda.sh
@@ -29,33 +25,36 @@ source /data/home/willfeng/setup_efa.sh
 export CUDA_HOME=/usr/local/cuda-11.4
 export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 
-# First time
+# First time only, no need to do this if you are using torch_nightly_cuda from /fsx/users/willfeng/conda/
+#
+# Step 1: Set up conda environment
 # pip3 install --pre torch torchtext torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cu113
-# cd ~/torchdynamo
+#
+# Step 2: Install torchdynamo
+# cd /fsx/users/${USER}
+# git clone https://github.com/yf225/torchdynamo -b inductor
+# cd /fsx/users/${USER}/torchdynamo_yf225
 # pip install -r requirements.txt
 # python setup.py develop
-
-# In fairinternal torchbench repo
+#
+# Step 3: Set up torchbench
+# cd /fsx/users/${USER}
+# git clone https://github.com/fairinternal/torchbench
+# cd /fsx/users/${USER}/torchbench
 # python install.py
+#
+# Step 4: Install triton
+# git clone https://github.com/openai/triton.git
+# cd triton/python
+# pip install cmake
+# pip install -e .
 
-cd $HOME_DIR/torchdynamo_yf225
-
-# fix the version of black so `make format` / `make lint` work
-make lint-deps
-
-# Run benchmark  # --verbose
-# Reference: https://github.com/jansel/torchdynamo/blob/5d4ff33e680005dba6dccbb7a53e7afd45de196a/Makefile#L148
+cd /fsx/users/${USER}/torchdynamo_yf225
 
 # Training
-./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor --training --skip-accuracy-check
-./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser --training --skip-accuracy-check
+./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor --training  # TorchInductor + Triton
+./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser --training  # NVFuser
 
 # Inference
-./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor
-./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser
-
-
-
-# TODO: study what the result means
-
-# TODO: then, run all ranking models with Triton vs. NVFuser (see VERY_SLOW_BENCHMARKS in dynamo repo)
+./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --inductor  # TorchInductor + Triton
+./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --backend=cudagraphs_ts --nvfuser  # NVFuser
