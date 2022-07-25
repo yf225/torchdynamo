@@ -6,9 +6,10 @@
 
 export PATH="/opt/slurm/bin:$PATH"
 
+# Use one of following to allocate GPU node
 srun --nodes=1 --gpus-per-node=8 -p dev -t 72:00:00 --exclusive --pty /bin/bash -l
-srun --nodes=4 --gpus-per-node=8 -p train -t 72:00:00 --exclusive --pty /bin/bash -l
-srun --nodes=8 --gpus-per-node=8 -p scavenge -t 72:00:00 --exclusive --pty /bin/bash -l
+srun --nodes=1 --gpus-per-node=8 -p train -t 72:00:00 --exclusive --pty /bin/bash -l
+srun --nodes=1 --gpus-per-node=8 -p scavenge -t 72:00:00 --exclusive --pty /bin/bash -l
 
 conda deactivate && conda deactivate && conda deactivate
 . /fsx/users/willfeng/conda/etc/profile.d/conda.sh
