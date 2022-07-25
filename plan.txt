@@ -11,10 +11,7 @@ srun --nodes=1 --gpus-per-node=8 -p dev -t 72:00:00 --exclusive --pty /bin/bash 
 srun --nodes=1 --gpus-per-node=8 -p train -t 72:00:00 --exclusive --pty /bin/bash -l
 srun --nodes=1 --gpus-per-node=8 -p scavenge -t 72:00:00 --exclusive --pty /bin/bash -l
 
-conda deactivate && conda deactivate && conda deactivate
-. /fsx/users/willfeng/conda/etc/profile.d/conda.sh
-export PATH="/fsx/users/willfeng/conda/bin:$PATH"
-conda deactivate && conda deactivate && conda deactivate
+conda create -n torch_nightly_cuda python=3.8
 conda activate torch_nightly_cuda
 export MODULEPATH=/data/shared/modulefiles:$MODULEPATH
 module unload cuda
@@ -22,12 +19,9 @@ module unload nccl
 module unload nccl_efa
 module load cuda/11.4 nccl/2.12.7-cuda.11.4 nccl_efa/1.2.0-nccl.2.12.7-cuda.11.4
 source /data/shared/bin/cluster_env_new.sh
-source /data/home/willfeng/setup_efa.sh
 export CUDA_HOME=/usr/local/cuda-11.4
 export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 
-# First time only, no need to do this if you are using torch_nightly_cuda from /fsx/users/willfeng/conda/
-#
 # Step 1: Set up conda environment
 # pip3 install --pre torch torchtext torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cu113
 #
@@ -45,6 +39,7 @@ export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 # python install.py
 #
 # Step 4: Install triton
+# cd /fsx/users/${USER}
 # git clone https://github.com/openai/triton.git
 # cd triton/python
 # pip install cmake
