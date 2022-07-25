@@ -30,9 +30,6 @@ from torchdynamo.optimizations.inference import offline_autotuner
 from torchdynamo.optimizations.inference import online_autotuner
 from torchdynamo.optimizations.log_args import conv_args_analysis
 from torchdynamo.optimizations.python_key import python_key
-from torchdynamo.optimizations.training import aot_autograd_debug_strategy1
-from torchdynamo.optimizations.training import aot_autograd_nnc_strategy
-from torchdynamo.optimizations.training import aot_autograd_speedup_strategy
 from torchdynamo.profiler import Profiler
 from torchdynamo.profiler import fx_insert_profiling
 from torchdynamo.testing import dummy_fx_compile
@@ -297,6 +294,9 @@ def speedup_experiment(args, model_iter_fn, model, example_inputs):
 
     Writes to ./speedups.csv
     """
+    if args.dynamic_shapes:
+        return speedup_experiment_ds(args, model_iter_fn, model, example_inputs)
+
     timings = np.zeros((args.repeat, 2), np.float64)
     # if we randomize the input, we should also check the result is correct
     should_check_result = should_randomize_input = args.randomize_input
@@ -328,6 +328,78 @@ def speedup_experiment(args, model_iter_fn, model, example_inputs):
         [current_device, current_name, float(speedup)],
     )
     return format_speedup(speedup, pvalue, is_correct=is_correct)
+
+
+def speedup_experiment_ds(args, model_iter_fn, model, example_inputs):
+    """
+    Run dynamic shapes benchmarks.
+
+    Requires dynamic shape compatible models, which provide a list of example inputs.
+
+    Warms up using the first input example and then iterates the inputs,
+    measuring (and expecting minimal) variance between the runtime for different examples.
+
+    """
+    timings = np.zeros((args.repeat, len(example_inputs), 2), np.float64)
+
+    if args.repeat > 5:
+        print(
+            f"\ndynamic shapes experiments are slow, consider setting --repeat less than {args.repeat}\n"
+        )
+
+    nwarmup = 4
+    for rep in range(args.repeat):
+        # Start each rep fresh, e.g. only warmup on example 0
+        torchdynamo.reset()
+        for _ in range(nwarmup):
+            with optimize_ctx:
+                model_iter_fn(model, example_inputs[0])
+
+        for input_idx, inputs in enumerate(example_inputs):
+            # interleave the runs to handle frequency scaling and load changes
+            timings[rep, input_idx, 0] = timed(
+                model, model_iter_fn, inputs, return_result=False
+            )
+            # different from regular speedup_experiment, we _DO_ want to allow recompilation
+            with optimize_ctx:
+                timings[rep, input_idx, 1] = timed(
+                    model, model_iter_fn, inputs, return_result=False
+                )
+    medians = np.median(timings, axis=0)
+    speedups = list(medians[:, 0] / medians[:, 1])
+    speedups_mean = np.mean(speedups)
+    speedups_median = np.median(speedups)
+    speedups_var = np.var(speedups)
+
+    # TODO this x[0] is not going to work in general but bert only has 1 input
+    shapes = [x[0].shape for x in example_inputs]
+    shape_keys = sorted(set(shapes))
+    shape_speedups = {
+        shape: list(
+            map(
+                lambda it: it[1],
+                filter(lambda it: it[0] == shape, zip(shapes, speedups)),
+            )
+        )
+        for shape in shape_keys
+    }
+    output_str = (
+        f"mean: {speedups_mean:.3f}, median: {speedups_median:.3f}, var: {speedups_var:.3f}"
+        + "\nSpeedups by shape: "
+        + "\n".join(
+            [
+                f"{shape}: "
+                + ", ".join([f"{speedup: .3g}" for speedup in shape_speedups[shape]])
+                for shape in shape_keys
+            ]
+        )
+    )
+    output_csv(
+        output_filename,
+        ("dev", "name", "speedup mean", "speedup median", "speedup var"),
+        [current_device, current_name, speedups_mean, speedups_median, speedups_var],
+    )
+    return output_str
 
 
 def overhead_experiment(*args, model_iter_fn):
@@ -377,7 +449,10 @@ def baselines(models, model_iter_fn, example_inputs, args):
     for rep in range(args.repeat):
         for idx, (name, model) in enumerate(models):
             if model is not None:
-                timings[rep, idx] = timed(model, model_iter_fn, example_inputs)
+                try:
+                    timings[rep, idx] = timed(model, model_iter_fn, example_inputs)
+                except Exception:
+                    pass
     pvalue = [
         ttest_ind(timings[:, 0], timings[:, i]).pvalue
         for i in range(1, timings.shape[1])
@@ -414,6 +489,17 @@ def speedup_experiment_ts(args, model_iter_fn, model, example_inputs):
 
     Writes to ./baseline_ts.csv
     """
+    if args.training:
+        return baselines(
+            [
+                ("eager", model),
+                ("ts", try_script(model, example_inputs)),
+            ],
+            model_iter_fn,
+            example_inputs,
+            args,
+        )
+
     return baselines(
         [
             ("eager", model),
@@ -533,15 +619,14 @@ def cast_to_fp16(model, inputs):
     # cast model and inputs to fp16
     model = model.half()
 
-    inputs = tuple(
-        tree_map(
-            lambda x: x.to(torch.float16)
-            if getattr(x, "dtype", None) == torch.float32
-            or getattr(x, "dtype", None) == torch.float64
-            else x,
-            inputs,
-        )
+    inputs = tree_map(
+        lambda x: x.to(torch.float16)
+        if getattr(x, "dtype", None) == torch.float32
+        or getattr(x, "dtype", None) == torch.float64
+        else x,
+        inputs,
     )
+
     # Disable this part temporarily. Further evaluation needed
     # TRT does not support int64. Some model does need it like Super_SloMo
     # if current_name != "Super_SloMo" and current_name != "fastNLP_Bert":
@@ -560,15 +645,14 @@ def cast_to_fp32(model, inputs):
     # cast model and inputs to fp16
     model = model.to(torch.float32)
 
-    inputs = tuple(
-        tree_map(
-            lambda x: x.to(torch.float32)
-            if getattr(x, "dtype", None) == torch.float16
-            or getattr(x, "dtype", None) == torch.float64
-            else x,
-            inputs,
-        )
+    inputs = tree_map(
+        lambda x: x.to(torch.float32)
+        if getattr(x, "dtype", None) == torch.float16
+        or getattr(x, "dtype", None) == torch.float64
+        else x,
+        inputs,
     )
+
     return model, inputs
 
 
@@ -637,7 +721,7 @@ class BenchmarkRunner:
         return set()
 
     @property
-    def get_tolerance(self, is_training, current_device, name):
+    def get_tolerance_and_cosine_flag(self, is_training, current_device, name):
         raise NotImplementedError()
 
     def run_one_model(
@@ -648,18 +732,32 @@ class BenchmarkRunner:
         model_iter_fn,
         example_inputs,
         optimize_ctx,
+        accuracy_ctx,
         experiment,
-        cos_similarity=False,
         skip_accuracy_check=False,
+        dynamic_shapes=False,
     ):
         t0 = time.perf_counter()
-        tolerance = self.get_tolerance(is_training, current_device, name)
+        tolerance, cos_similarity = self.get_tolerance_and_cosine_flag(
+            is_training, current_device, name
+        )
         with self.pick_grad(name, is_training):
             mode = "train" if is_training else "eval"
             sys.stdout.write(f"{current_device:4} {mode:5} {current_name:34} ")
             sys.stdout.flush()
             for submod in itertools.chain([model], model.modules()):
                 assert not torchdynamo.utils.is_jit_model(submod)
+
+            if dynamic_shapes:
+                # skip correctness check for ds benchmark, becuase example_inputs are not
+                # compatible with the code below, and the same benchmarks can be run in
+                # non-dynamic shapes mode for correctness checks
+                torch.manual_seed(1337)
+                torchdynamo.reset()
+                results = []
+                results.append(experiment(model, example_inputs))
+                print(" ".join(map(str, results)))
+                return 0
 
             torch.manual_seed(1337)
             correct_result = model_iter_fn(
@@ -678,7 +776,6 @@ class BenchmarkRunner:
 
             torch.manual_seed(1337)
             torchdynamo.reset()
-
             if experiment.func is cold_start_experiment:
                 results = []
                 results.append(experiment(model, example_inputs, optimize_ctx))
@@ -686,7 +783,7 @@ class BenchmarkRunner:
                 return 0
 
             try:
-                with optimize_ctx:
+                with accuracy_ctx:
                     new_result = model_iter_fn(model, example_inputs)
             except Exception:
                 logging.exception("unhandled error")
@@ -704,9 +801,11 @@ class BenchmarkRunner:
             ok, total = Stats.reset_counters()
             results = []
 
-            # run one more time to see if we reached a fixed point
-            with optimize_ctx:
-                model_iter_fn(model, example_inputs)
+            torchdynamo.reset()
+            # run with torchdynamo few times to populate the cache
+            for _ in range(3):
+                with optimize_ctx:
+                    model_iter_fn(model, example_inputs)
             _, frames_second_pass = Stats.reset_counters()  # should be 0
 
             if frames_second_pass > 0:
@@ -765,11 +864,15 @@ def parse_args():
         "--nvfuser", action="store_true", help="enable nvfuser globally"
     )
     parser.add_argument(
+        "--prims-nvfuser", action="store_true", help="user prims + nvfuser backend"
+    )
+    parser.add_argument(
         "--isolate", action="store_true", help="run each model in its own process"
     )
 
     parser.add_argument("--float16", action="store_true", help="cast model to fp16")
     parser.add_argument("--float32", action="store_true", help="cast model to fp32")
+    parser.add_argument("--batch_size", type=int, help="batch size for benchmarking")
     parser.add_argument(
         "--amp", action="store_true", help="use automatic mixed precision"
     )
@@ -787,6 +890,11 @@ def parse_args():
         help="Performs training",
     )
     parser.add_argument(
+        "--dynamic_shapes",
+        action="store_true",
+        help="Runs a dynamic shapes version of the benchmark, if available.",
+    )
+    parser.add_argument(
         "--use-eval-mode",
         action="store_true",
         help="sets model.eval() to reduce randomness",
@@ -802,19 +910,23 @@ def parse_args():
         help="Generates AOT Autograd stats like how mnay graphs are sent to AOT",
     )
     parser.add_argument(
-        "--disable-functionalization",
-        action="store_true",
-        help="Disables functionalization",
-    )
-    parser.add_argument(
         "--inductor-settings",
         action="store_true",
         help="Use same settings as --inductor for baseline comparisons",
     )
     parser.add_argument(
+        "--raise-on-assertion-error",
+        action="store_true",
+        help="Fail a benchmark if torchdynamo triggers an internal assertion",
+    )
+    parser.add_argument(
         "--raise-on-backend-error",
         action="store_true",
         help="Fail a benchmark if backend throws an exception",
+    )
+    parser.add_argument(
+        "--output",
+        help="Overides the output filename",
     )
     group = parser.add_mutually_exclusive_group()
     group.add_argument(
@@ -863,6 +975,11 @@ def parse_args():
     )
     group.add_argument(
         "--speedup-trt", action="store_true", help=help(speedup_experiment_trt)
+    )
+    group.add_argument(
+        "--speedup-dynamo-ts",
+        action="store_true",
+        help="TorchDynamo frontend with torchscript backend",
     )
     group.add_argument("--python-key", action="store_true")
     group.add_argument(
@@ -991,6 +1108,7 @@ def main(runner, original_dir=None):
     if args.verbose:
         torchdynamo.config.debug = True
 
+    torchdynamo.config.raise_on_assertion_error = args.raise_on_assertion_error
     torchdynamo.config.raise_on_backend_error = args.raise_on_backend_error
 
     if args.training:
@@ -1012,9 +1130,6 @@ def main(runner, original_dir=None):
         if args.float16:
             # TODO(jansel): check if correctness issue is real
             runner.skip_models.add("yolov3")
-        if not (args.float16 or args.float32):
-            # https://github.com/openai/triton/issues/543 causes only 98.8% similarity
-            runner.non_deterministic_models.add("pyhpc_equation_of_state")
         if args.training:
             # dropout,etc makes results not match
             args.skip_accuracy_check = True
@@ -1035,19 +1150,19 @@ def main(runner, original_dir=None):
     if args.no_skip:
         runner.skip_models.clear()
 
+    accuracy_ctx = None
     experiment = null_experiment
+    global current_name, current_device, output_filename, optimize_ctx
     optimize_ctx = NullContext()
-    global current_name, current_device, output_filename
 
     if args.overhead:
         optimize_ctx = torchdynamo.optimize(dummy_fx_compile, nopython=args.nopython)
         experiment = speedup_experiment
         output_filename = "overheads.csv"
     elif args.cold_start:
-        optimize_ctx = torchdynamo.optimize(
-            aot_autograd_speedup_strategy, nopython=args.nopython
-        )
+        optimize_ctx = torchdynamo.optimize("aot_nvfuser", nopython=args.nopython)
         experiment = cold_start_experiment
+        assert args.nvfuser, "TODO - Add another aot string for mem fusion with NNC"
         backend_str = "nvfuser" if args.nvfuser else "nnc"
         output_filename = f"cold_start_{backend_str}.csv"
         args.isolate = True
@@ -1066,14 +1181,7 @@ def main(runner, original_dir=None):
         else:
             torchinductor.config.dynamic_shapes = False
 
-        if True or args.training:
-            from torchinductor.compile_fx import compile_fx_training
-
-            optimize_ctx = torchdynamo.optimize(
-                compile_fx_training, nopython=args.nopython
-            )
-        else:
-            optimize_ctx = torchdynamo.optimize("inductor", nopython=args.nopython)
+        optimize_ctx = torchdynamo.optimize("inductor", nopython=args.nopython)
         experiment = speedup_experiment
         output_filename = "inductor.csv"
     elif args.online_autotune:
@@ -1128,6 +1236,10 @@ def main(runner, original_dir=None):
     elif args.speedup_trt:
         experiment = speedup_experiment_trt
         output_filename = "baseline_trt.csv"
+    elif args.speedup_dynamo_ts:
+        optimize_ctx = torchdynamo.optimize(backends.ts, nopython=args.nopython)
+        experiment = speedup_experiment
+        output_filename = "speedup_dynamo_ts.csv"
     elif args.speedup_fx2trt:
         optimize_ctx = torchdynamo.optimize(
             backends.fx2trt_compiler, nopython=args.nopython
@@ -1148,25 +1260,28 @@ def main(runner, original_dir=None):
         args.float16 = True
         args.cosine = True
     elif args.accuracy_aot_nop:
-        optimize_ctx = torchdynamo.optimize(
-            aot_autograd_debug_strategy1, nopython=args.nopython
-        )
+        optimize_ctx = torchdynamo.optimize("aot_nop", nopython=args.nopython)
         experiment = speedup_experiment
         output_filename = "accuracy_aot_nop.csv"
     elif args.accuracy_aot_ts:
-        optimize_ctx = torchdynamo.optimize(
-            aot_autograd_nnc_strategy, nopython=args.nopython
-        )
+        optimize_ctx = torchdynamo.optimize("aot_ts", nopython=args.nopython)
         experiment = speedup_experiment
         backend_str = "nvfuser" if args.nvfuser else "nnc"
         output_filename = f"accuracy_aot_{backend_str}.csv"
     elif args.accuracy_aot_ts_mincut:
-        optimize_ctx = torchdynamo.optimize(
-            aot_autograd_speedup_strategy, nopython=args.nopython
+        optimize_ctx = torchdynamo.optimize("aot_nvfuser", nopython=args.nopython)
+        accuracy_ctx = torchdynamo.optimize(
+            "aot_nvfuser_nodecomps", nopython=args.nopython
         )
         experiment = speedup_experiment
+        assert args.nvfuser, "TODO - Add another aot string for mem fusion with NNC"
         backend_str = "nvfuser" if args.nvfuser else "nnc"
         output_filename = f"accuracy_aot_{backend_str}_mincut.csv"
+    elif args.prims_nvfuser:
+        optimize_ctx = torchdynamo.optimize("prims_nvfuser", nopython=args.nopython)
+        experiment = speedup_experiment
+        backend_str = "prims_nvfuser"
+        output_filename = f"accuracy_aot_{backend_str}.csv"
     elif args.print_fx:
         optimize_ctx = torchdynamo.optimize(
             print_fx,
@@ -1204,17 +1319,18 @@ def main(runner, original_dir=None):
         experiment = coverage_experiment
         output_filename = "coverage.csv"
 
+    if accuracy_ctx is None:
+        accuracy_ctx = optimize_ctx
+
     runner.setup_amp()
 
     experiment = functools.partial(experiment, args, model_iter_fn)
 
-    cos_similarity = args.cosine
+    if args.output:
+        output_filename = args.output
 
     if output_filename:
         output_filename = os.path.join(torchdynamo.config.base_dir, output_filename)
-
-    if args.disable_functionalization:
-        torchdynamo.config.normalize_ir = False
 
     if args.minimum_call_count:
         torchdynamo.config.minimum_call_count = args.minimum_call_count
@@ -1222,7 +1338,12 @@ def main(runner, original_dir=None):
         for device in args.devices:
             try:
                 device, name, model, example_inputs = runner.load_model(
-                    device, args.only, args.training, args.use_eval_mode
+                    device,
+                    args.only,
+                    args.training,
+                    args.use_eval_mode,
+                    args.batch_size,
+                    args.dynamic_shapes,
                 )
             except NotImplementedError:
                 continue  # bad benchmark implementation
@@ -1241,12 +1362,13 @@ def main(runner, original_dir=None):
                 model_iter_fn,
                 example_inputs,
                 optimize_ctx,
+                accuracy_ctx,
                 experiment,
-                cos_similarity,
                 args.skip_accuracy_check,
+                args.dynamic_shapes,
             )
-        stats_file = output_filename.split(".csv")[0] + "_stats.csv"
         if args.generate_aot_autograd_stats:
+            stats_file = output_filename.split(".csv")[0] + "_stats.csv"
             output_csv(
                 stats_file,
                 ("dev", "name", "total_aot_graphs", "ok_aot_graphs"),
@@ -1286,9 +1408,10 @@ def main(runner, original_dir=None):
                 model_iter_fn,
                 example_inputs,
                 optimize_ctx,
+                accuracy_ctx,
                 experiment,
-                cos_similarity,
                 args.skip_accuracy_check,
+                args.dynamic_shapes,
             )
 
         Stats.print_summary()

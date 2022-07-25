@@ -3,6 +3,7 @@ import contextlib
 import dataclasses
 import functools
 import itertools
+import logging
 from typing import Any
 from typing import Dict
 from typing import List
@@ -20,7 +21,8 @@ from .sizevars import SimplifyIndexing
 from .virtualized import V
 
 template_kernels = [ir.Convolution]
-priority_loop_order_kernels = [ir.Convolution]
+
+log = logging.getLogger(__name__)
 
 
 def cmp(a, b):
@@ -168,6 +170,7 @@ class ExternKernelSchedulerNode(BaseSchedulerNode):
         return self._sizes
 
     def run(self, codegen_extern_call):
+        log.info(f"RUN EXTERN {self.get_name()}")
         self.allocate()
         self.scheduler.run_count += 1
         self.scheduler.pending_buffer_names.add(self.get_name())
@@ -185,6 +188,7 @@ class NopKernelSchedulerNode(BaseSchedulerNode):
         return False
 
     def run(self):
+        log.info(f"RUN NOP {self.get_name()}")
         self.allocate()
         self.scheduler.run_count += 1
         self.scheduler.pending_buffer_names.add(self.get_name())
@@ -204,13 +208,6 @@ def pick_loop_order(stride_lengths, sizes, priority_idx=[]):
         if sizes[a] == 1 or sizes[b] == 1:
             # 1-sizes don't matter, just move them to the end
             return cmp(sizes[a] == 1, sizes[b] == 1)
-
-        # if any input is channel_last aka stride[1] == 1
-        # let the output to be channel_last
-        if len(sizes) == 4 and a == 1 and any(stride_lengths[:, a] == 1):
-            return -1
-        if len(sizes) == 4 and b == 1 and any(stride_lengths[:, b] == 1):
-            return 1
 
         a_first = np.logical_or(
             stride_lengths[:, b] == 0, stride_lengths[:, a] < stride_lengths[:, b]
@@ -239,39 +236,15 @@ def pick_loop_order(stride_lengths, sizes, priority_idx=[]):
 class SchedulerNode(BaseSchedulerNode):
     def __init__(self, scheduler: "Scheduler", node: ir.ComputedBuffer, group_fn):
         super().__init__(scheduler, node)
-        # if high_priority = ir.Convolution out buf is in the reads of current node
-        # force the loop order follows the NHWC order]
-        priority_addrs = []
-        if ir.is_triton(self.get_device()) and config.triton.convolution != "aten":
-            priority_loop_order_nodes = scheduler.collect_priority_loop_order_kernels()
-            for read in self.read_writes.reads:
-                if read.name in priority_loop_order_nodes:
-                    priority_addrs.append(read.index)
-            # currently only support reads from only 1 convolution
-            assert len(priority_addrs) == 1
         (
             self._sizes,
             self._body,
-        ) = node.simplify_reorder_and_tile(priority_addrs=priority_addrs)
+        ) = node.simplify_reorder_and_tile()
 
         self.group = (node.get_device(), group_fn(self._sizes))
         self.set_read_writes(
             dependencies.extract_read_writes(self._body, *self._sizes, normalize=True)
         )
-
-    def reorder_channel_last(self):
-        node = self.node
-        (
-            self._sizes,
-            self._body,
-        ) = node.simplify_reorder_and_tile(channel_last=True)
-
-    def re_simplify_reorder_and_tile(self):
-        node = self.node
-        (
-            self._sizes,
-            self._body,
-        ) = node.simplify_reorder_and_tile()
 
     def can_remove_buffer(self, check_group):
         if (
@@ -301,11 +274,6 @@ class SchedulerNode(BaseSchedulerNode):
             # downstream dependencies get confused by it
             self.scheduler.fusable_deps.update(
                 w.strip_last_size() for w in self.read_writes.writes
-            )
-            # reduction not on the last dim swaps the sizes, and downstream
-            # dependencies expect unswapped
-            self.scheduler.fusable_deps.update(
-                w.maybe_swap_sizes() for w in self.read_writes.writes
             )
             # reduction not on the last dim swaps the sizes, and downstream
             # dependencies expect unswapped
@@ -360,6 +328,7 @@ class SchedulerNode(BaseSchedulerNode):
         super().allocate()
 
     def run(self, *index_vars):
+        log.info(f"RUN {self.get_name()}")
         self.allocate()
         self.scheduler.run_count += 1
         sizes = self._sizes
@@ -370,7 +339,9 @@ class SchedulerNode(BaseSchedulerNode):
                 itertools.chain.from_iterable(sizes),
             )
         )
-        with V.set_ops_handler(SimplifyIndexing(V.get_ops_handler(), var_ranges)):
+        with V.set_ops_handler(
+            SimplifyIndexing(V.get_ops_handler(), var_ranges)
+        ), V.kernel.set_current_node(self):
             self._body(*index_vars)
         self.scheduler.pending_buffer_names.add(self.get_name())
 
@@ -417,8 +388,9 @@ class BlockedNodes:
     def add(self, node: SchedulerNode):
         box = SchedulerNodeBox(node)
         for dep in node.unmet_dependencies:
-            self.name_to_nodes[dep.name].append(box)
             self.dep_to_nodes[dep].append(box)
+        for name in {dep.name for dep in node.unmet_dependencies}:
+            self.name_to_nodes[name].append(box)
 
     def pop_name(self, name):
         return [x.pop() for x in self.name_to_nodes.pop(name, []) if x]
@@ -451,12 +423,12 @@ class Scheduler:
         super(Scheduler, self).__init__()
         self.backends = {}
         self.current_device = None
-        # runable_groups maps node group to priority
-        # we use self.runable_groups.most_common() to implement a priority queue
-        self.runable_groups = collections.Counter()
-        # runable_nodes  maps node group to nodes
-        self.runable_nodes: Dict[Any, SchedulerNode] = collections.defaultdict(list)
-        self.runable_extern_kernels = collections.deque()
+        # runnable_groups maps node group to priority
+        # we use self.runnable_groups.most_common() to implement a priority queue
+        self.runnable_groups = collections.Counter()
+        # runnable_nodes  maps node group to nodes
+        self.runnable_nodes: Dict[Any, SchedulerNode] = collections.defaultdict(list)
+        self.runnable_extern_kernels = collections.deque()
         self.blocked_nodes = BlockedNodes()
         self.run_count = 0
         self.nodes = []
@@ -528,6 +500,19 @@ class Scheduler:
                 return rename(self.mutation_renames[n])
             return n
 
+        def dep_closure(node_name):
+            reachable_names = {node_name}
+            node = self.name_to_node[node_name]
+            write_dep = list(node.read_writes.writes)[0]
+            for read_dep in node.read_writes.reads:
+                if (
+                    read_dep.name in self.name_to_node
+                    and read_dep.index == write_dep.index
+                    and read_dep.size == write_dep.size
+                ):
+                    reachable_names.update(dep_closure(read_dep.name))
+            return reachable_names
+
         def add_user(used_by_name, user_node, can_inplace=False):
             name_to_users[rename(used_by_name)].append(NodeUser(user_node, can_inplace))
 
@@ -541,7 +526,10 @@ class Scheduler:
                 for other_node in name_to_users[alt_name]:
                     # this node must run after all prior readers
                     other_name = rename(other_node.get_name())
-                    if other_name != node.get_name():
+                    known_dep_node_names = dep_closure(node.get_name())
+                    if other_name not in known_dep_node_names:
+                        # If this node alreay directly or indirectly depends on other_node,
+                        # we don't need to insert an extra StarDep.
                         node.add_mutation_dep(other_name)
                         add_user(other_name, node)
 
@@ -561,8 +549,9 @@ class Scheduler:
 
         # make sure outputs aren't dead-code-eliminated
         for node in V.graph.graph_outputs:
-            name = node.get_name()
-            add_user(node.get_name(), OutputNode(StarDep(name)))
+            if not isinstance(node, ir.NoneAsConstantBuffer):
+                name = node.get_name()
+                add_user(node.get_name(), OutputNode(StarDep(name)))
 
         # make sure input mutation isn't dead-code-eliminated
         for name in self.mutation_renames:
@@ -586,6 +575,7 @@ class Scheduler:
                 updated_nodes.append(node)
             else:
                 # dead code
+                log.debug("removed dead node: %s", node.get_name())
                 V.graph.removed_buffers.add(node.get_name())
         self.nodes = updated_nodes
 
@@ -600,13 +590,13 @@ class Scheduler:
             self.blocked_nodes.add(node)
         else:
             if isinstance(node, ExternKernelSchedulerNode):
-                self.runable_extern_kernels.append(node)
+                self.runnable_extern_kernels.append(node)
             elif isinstance(node, NopKernelSchedulerNode):
                 node.run()  # just schedule nop kernels eagerly
             else:  # SchedulerNode
-                self.runable_nodes[node.group].append(node)
-                old_priority, old_count = self.runable_groups.get(node.group, (0, 0))
-                self.runable_groups[node.group] = (
+                self.runnable_nodes[node.group].append(node)
+                old_priority, old_count = self.runnable_groups.get(node.group, (0, 0))
+                self.runnable_groups[node.group] = (
                     max(old_priority, node.get_priority()),
                     old_count + 1,
                 )
@@ -625,21 +615,29 @@ class Scheduler:
                 ]
             )
             if not is_live:
-                # Assign a special value instead of deleting the entry
-                # because we still rely on output_buffers's length to
-                # generate unique arg name.
-                V.kernel.args.output_buffers[name] = "REMOVED"
-                V.graph.removed_buffers.add(name)
+                self.remove_buffer(name)
 
     def remove_buffer(self, name):
+        # Assign a special value instead of deleting the entry
+        # because we still rely on output_buffers's length to
+        # generate unique arg name.
         V.kernel.args.output_buffers[name] = "REMOVED"
         V.graph.removed_buffers.add(name)
 
     def barrier(self):
         """
         Mark all pending_buffer_names as available and enqueue any nodes
-        that became runable.
+        that became runnable.
         """
+        if config.debug and (self.fusable_deps or self.pending_buffer_names):
+
+            def gc(d):
+                return {k: v for k, v in d.items() if any(v)}
+
+            log.info(f"blocked names: {gc(self.blocked_nodes.dep_to_nodes)}")
+            log.info(f"blocked deps: {gc(self.blocked_nodes.name_to_nodes)}")
+            log.info(f"new fusable_deps: {self.fusable_deps}")
+
         while self.pending_buffer_names:
             self.available_buffer_names.update(self.pending_buffer_names)
             nodes_to_add = []
@@ -671,6 +669,7 @@ class Scheduler:
         self.check_can_free.clear()
 
     def kernel(self, kernel):
+        log.info("NEW KERNEL")
         self.fusable_deps.clear()
         self.kernels.append(kernel)
 
@@ -681,10 +680,10 @@ class Scheduler:
 
         return ctx()
 
-    def iter_runable_groups(self):
-        while self.runable_groups or self.runable_extern_kernels:
-            if self.runable_extern_kernels:
-                runnable_extern_kernel = self.runable_extern_kernels.popleft()
+    def iter_runnable_groups(self):
+        while self.runnable_groups or self.runnable_extern_kernels:
+            if self.runnable_extern_kernels:
+                runnable_extern_kernel = self.runnable_extern_kernels.popleft()
                 try:
                     self.current_device = runnable_extern_kernel.get_device()
                 except AttributeError:
@@ -692,10 +691,10 @@ class Scheduler:
                     pass
                 runnable_extern_kernel.run(self.codegen_extern_call)
             else:
-                group, priority = self.runable_groups.most_common(1)[0]
-                del self.runable_groups[group]
+                group, priority = self.runnable_groups.most_common(1)[0]
+                del self.runnable_groups[group]
                 yield group
-        assert not self.runable_nodes
+        assert not self.runnable_nodes
         assert len(self.nodes) == self.run_count
 
     def iter_fixed_point(self):
@@ -709,16 +708,25 @@ class Scheduler:
 
     def pop_group(self, group_without_device):
         group = (self.current_device, tuple(group_without_device))
-        while group in self.runable_nodes:
-            if group in self.runable_groups:
-                del self.runable_groups[group]
-            yield from self.runable_nodes.pop(group)
+        while group in self.runnable_nodes:
+            if group in self.runnable_groups:
+                del self.runnable_groups[group]
+            yield from self.runnable_nodes.pop(group)
         if self.fusable_deps:
             fusable = True
             while fusable:
                 # keep poping fusable nodes as their depdencies are satisfied
                 fusable = self.blocked_nodes.pop_fusable(self.fusable_deps, group)
                 yield from fusable
+
+    def pop_groups(self, groups):
+        keep_going = True
+        while keep_going:
+            keep_going = False
+            for group in groups:
+                for node in self.pop_group(group):
+                    keep_going = True
+                    yield node
 
     def flush(self):
         for backend in self.backends.values():
@@ -752,17 +760,9 @@ class Scheduler:
         return self.backends[device]
 
     def codegen(self):
-        for device, group in self.iter_runable_groups():
+        for device, group in self.iter_runnable_groups():
             if device != self.current_device:
                 self.flush()
                 self.current_device = device
             self.get_backend(device).codegen(*group)
         self.flush()
-
-    def collect_priority_loop_order_kernels(self):
-        names = []
-        for node in self.nodes:
-            node_type = type(node.node)
-            if node_type in priority_loop_order_kernels:
-                names.append(node.get_name())
-        return names

@@ -32,9 +32,11 @@ benchmark_harness = True
 realize_reads_threshold = 4
 realize_bytes_threshold = 2000
 
-
 # fallback to eager for random/dropout, this is slow but useful for debugging
 fallback_random = False
+
+# python_key_normalize versus aot_autograd
+aot_autograd = True
 
 
 # config specific to codegen/cpp.pp
@@ -71,7 +73,7 @@ class triton:
     # in triton if loading from 1-dim tensor using 2-dim pointer offset
     # https://triton-lang.slack.com/archives/C01L1FLTX70/p1656023403343639
     # could be set as False if triton fixes the bug later
-    dense_indexing = True
+    dense_indexing = True if convolution != "aten" else False
 
     # limit tiling dimensions
     # Disable tiling until we figure out how tiling and fusion work together

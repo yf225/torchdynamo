@@ -14,6 +14,7 @@ import torch
 from .. import codecache
 from .. import config
 from .. import ir
+from ..utils import has_triton_libdevice
 from ..utils import sympy_product
 from ..virtualized import V
 from ..virtualized import ops
@@ -92,34 +93,8 @@ class TritonOverrides(OpOverrides):
         return f"tl.sqrt({x})"
 
     @staticmethod
-    def log(x):
-        # workaround https://github.com/openai/triton/issues/543
-        return f"tl.log({x}.to(tl.float32))"
-
-    @staticmethod
-    def isinf(x):
-        return f"{x}+1 == {x}"
-
-    @staticmethod
-    def isnan(x):
-        return f"{x} != {x}"
-
-    @staticmethod
     def relu(x):
         return ops.maximum("0", x)
-
-    @staticmethod
-    def round(x):
-        return f"tl.where({x}<0, {x}-0.5, {x}+0.5).to(tl.int32).to(tl.float32)"
-
-    @staticmethod
-    def floor(x):
-        tmp = ops.trunc(x)
-        return f"tl.where({tmp}>{x}, {tmp}-1, {tmp})"
-
-    @staticmethod
-    def trunc(x):
-        return f"{x}.to(tl.int32).to(tl.float32)"
 
     @staticmethod
     def minimum(a, b):
@@ -149,6 +124,10 @@ class TritonOverrides(OpOverrides):
         return f"tl.cos({x})"
 
     @staticmethod
+    def sin(x):
+        return f"tl.sin({x})"
+
+    @staticmethod
     def index_expr(expr, dtype):
         return V.kernel.indexing(expr)[0]
 
@@ -161,8 +140,64 @@ class TritonOverrides(OpOverrides):
         )
 
     @staticmethod
-    def rand(seed, offset):
+    def logical_and(a, b):
+        return f"{a} & {b}"
+
+    @staticmethod
+    def logical_or(a, b):
+        return f"{a} | {b}"
+
+    @staticmethod
+    def rand(seed, offset, _):  # _ here to keep the contract identical to CPU rand op
         return f"tl.rand({seed}, {offset})"
+
+    @staticmethod
+    def log(x):
+        if has_triton_libdevice():
+            return f"tl.libdevice.log({x}) if {x}.dtype is tl.float64 else tl.log({x})"
+        else:
+            # workaround https://github.com/openai/triton/issues/543
+            return f"tl.log({x}.to(tl.float32))"
+
+    @staticmethod
+    def isinf(x):
+        if has_triton_libdevice():
+            return f"tl.libdevice.isinfd({x}) if {x}.dtype is tl.float64 else tl.libdevice.isinff({x})"
+        else:
+            return f"{x}+1 == {x}"
+
+    @staticmethod
+    def isnan(x):
+        if has_triton_libdevice():
+            return f"tl.libdevice.isnand({x}) if {x}.dtype is tl.float64 else tl.libdevice.isnanf({x})"
+        else:
+            return f"{x} != {x}"
+
+    @staticmethod
+    def round(x):
+        if has_triton_libdevice():
+            return f"tl.libdevice.nearbyint({x})"
+        else:
+            return f"tl.where({x}<0, {x}-0.5, {x}+0.5).to(tl.int32).to(tl.float32)"
+
+    @staticmethod
+    def floor(x):
+        if has_triton_libdevice():
+            return f"tl.libdevice.floor({x})"
+        else:
+            tmp = ops.trunc(x)
+            return f"tl.where({tmp}>{x}, {tmp}-1, {tmp})"
+
+    @staticmethod
+    def trunc(x):
+        if has_triton_libdevice():
+            return f"tl.libdevice.trunc({x})"
+        else:
+            return f"{x}.to(tl.int32).to(tl.float32)"
+
+    @staticmethod
+    def ceil(x):
+        return f"tl.libdevice.ceil({x})"
 
 
 @dataclasses.dataclass
@@ -475,9 +510,19 @@ class TritonKernel(Kernel):
 
             return_getters_groups.append(return_getters)
 
-        assert all(s == 1 for s in remaining)
+        assert all(
+            V.graph.sizevars.size_hint(s) == 1 for s in remaining
+        ), f"failed to set ranges {remaining} {lengths}"
         itervars = list(itertools.chain(*self.set_ranges(*new_ranges)))
         return [[fn(itervars) for fn in fns] for fns in return_getters_groups]
+
+    def is_indirect_indexing(self, index: sympy.Expr):
+        index_vars = set(index.free_symbols)
+        return any(
+            # tmpX  means indirect indexing
+            str(v).startswith("tmp")
+            for v in index_vars
+        )
 
     def indexing(self, index: sympy.Expr, copy_shape=None):
         """
@@ -485,15 +530,8 @@ class TritonKernel(Kernel):
         """
         index_vars = set(index.free_symbols)
         index_str = texpr(self.rename_indexing(self.simplify_indexing(index)))
-
-        need_dense = (
-            config.triton.dense_indexing
-            or any(
-                # tmpX  means indirect indexing
-                str(v).startswith("tmp")
-                for v in index_vars
-            )
-        ) and index != 0
+        indirect_indexing = self.is_indirect_indexing(index)
+        need_dense = (config.triton.dense_indexing or indirect_indexing) and index != 0
         have_dense = True
         have_loop_vars = False
         mask = []
@@ -514,6 +552,8 @@ class TritonKernel(Kernel):
         elif not have_loop_vars and copy_shape:
             mask = dense_mask
             index_str = f"{index_str} + tl.zeros({copy_shape}.shape, tl.int32)"
+        elif indirect_indexing:
+            mask = dense_mask
 
         if self._load_mask:
             mask.append(self._load_mask)
@@ -533,16 +573,18 @@ class TritonKernel(Kernel):
 
     def simplify_indexing(self, expr: sympy.Expr):
         expr = V.graph.sizevars.simplify_with_ranges(expr, self.var_ranges())
+        sorted_expr_symbols = sorted(expr.free_symbols, key=lambda s: s.name)
         nodes = [
             self.range_tree_nodes[sym]
-            for sym in expr.free_symbols
+            for sym in sorted_expr_symbols
             if sym in self.range_tree_nodes
         ]
         if nodes:
             nodes.sort(key=lambda x: x.depth)
             expr = nodes[-1].simplify(expr)
+            sorted_expr_symbols = sorted(expr.free_symbols, key=lambda s: s.name)
 
-        for sym in expr.free_symbols:
+        for sym in sorted_expr_symbols:
             if sym in self.range_tree_nodes:
                 self.range_tree_nodes[sym].codegen()
 
@@ -561,20 +603,28 @@ class TritonKernel(Kernel):
 
     def load(self, name: str, index: sympy.Expr, upcast: bool = False):
         var = self.args.input(name)
+        indirect_indexing = self.is_indirect_indexing(index)
         index, mask = self.indexing(index)
-        line = f"tl.load({var} + {index}, {mask})"
+        if "rmask" in mask:
+            # This eviction policy heuristic is untested.
+            # ptillet suggested we should try only doing this for
+            # the first N-1 loops and not for the final loop.
+            ep = ", eviction_policy='evict_last'"
+        else:
+            ep = ""
+        line = f"tl.load({var} + {index}, {mask}{ep})"
         if upcast:
             line += ".to(tl.float32)"
 
-        if self.inside_reduction and "rmask" not in mask:
+        if self.inside_reduction and "rmask" not in mask and not indirect_indexing:
             # can lift a common load outside of reduction loop
+            # One exception is when this is an indirect_load.
             tmp = self.cse.generate(self.body, line)
         else:
             tmp = self.cse.generate(self.loads, line)
 
         if not self.inside_reduction or "rmask" not in mask:
             self.outside_loop_vars.add(tmp)
-
         return tmp
 
     def store(self, name, index, value, mode=None):
@@ -802,6 +852,7 @@ class TritonScheduling:
         return group
 
     def codegen(self, *groups):
+        log.info(f"codegen {groups}")
         wrapper = V.graph.wrapper_code
         scheduler = self.scheduler
 
@@ -824,8 +875,11 @@ class TritonScheduling:
                     group, reduction_group = groups
 
                     # Add pointwise with compatible dimensions
-                    for node in scheduler.pop_group(
-                        (group * reduction_group, sympy.Integer(1)),
+                    for node in scheduler.pop_groups(
+                        [
+                            (group * reduction_group, sympy.Integer(1)),
+                            (group, reduction_group, sympy.Integer(1)),
+                        ]
                     ):
                         try:
                             node.run(*kernel.split_and_set_ranges(node.get_ranges()))
@@ -857,11 +911,19 @@ class TritonScheduling:
                         except CantSplit:
                             reschedule.append(node)
 
-        kernel_name = wrapper.next_kernel_name()
         if config.triton.many_files:
+            kernel_name = wrapper.next_kernel_name()
             wrapper.define_kernel(kernel_name, kernel.codegen_kernel())
         else:
-            wrapper.header.splice(kernel.codegen_kernel(kernel_name))
+            src_code = kernel.codegen_kernel("{kernel_name}")
+            if src_code in wrapper.kernels:
+                kernel_name = wrapper.kernels[src_code]
+            else:
+                kernel_name = wrapper.next_kernel_name()
+                wrapper.kernels[src_code] = kernel_name
+                code = src_code.format(kernel_name=kernel_name)
+                wrapper.header.splice(code)
+
         kernel.call_kernel(wrapper, kernel_name)
 
         scheduler.enqueue(reschedule)

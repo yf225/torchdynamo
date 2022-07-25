@@ -25,6 +25,7 @@ decompositions = get_decompositions(
         aten.clamp_min,
         aten.cudnn_batch_norm,
         aten.cudnn_batch_norm_backward,
+        aten.detach,
         aten.elu_backward,
         aten._embedding_bag,
         aten.embedding_dense_backward,
@@ -42,10 +43,12 @@ decompositions = get_decompositions(
         aten.l1_loss,
         aten.leaky_relu,
         aten.leaky_relu_backward,
+        aten._log_softmax,
         aten._log_softmax_backward_data,
         aten.logsumexp.default,
         aten.max_pool2d_with_indices_backward,
         aten.mse_loss,
+        aten.mse_loss_backward,
         aten.narrow,
         aten.native_batch_norm,
         aten.native_batch_norm_backward,
@@ -53,6 +56,7 @@ decompositions = get_decompositions(
         aten.native_group_norm,
         aten.native_layer_norm,
         aten.native_layer_norm_backward,
+        aten.nll_loss_backward,
         aten.norm,
         aten.reflection_pad2d_backward,
         aten.select_backward,
@@ -60,6 +64,7 @@ decompositions = get_decompositions(
         aten.sigmoid_backward,
         aten.silu_backward,
         aten.slice_backward,
+        aten._softmax,
         aten._softmax_backward_data,
         aten.stack,
         aten.tanh_backward,
@@ -95,26 +100,6 @@ def clamp(x, min=None, max=None):
     if max is not None:
         x = torch.minimum(x, torch.tensor(max, dtype=x.dtype, device=x.device))
     return x
-
-
-@register_decomposition([aten._softmax])
-def _softmax(x, dim, half_to_float):
-    # TODO(jansel): check numerical stability (see SoftMaxKernel.cpp)
-    if half_to_float and x.dtype in (torch.bfloat16, torch.float16):
-        x = x.to(torch.float32)
-    x = torch.exp(x)
-    x_sum = torch.sum(x, dim, keepdim=True)
-    scale = torch.reciprocal(x_sum)
-    return x * scale
-
-
-@register_decomposition([aten._log_softmax])
-def _log_softmax(x, dim, half_to_float):
-    # TODO(jansel): check numerical stability (see SoftMaxKernel.cpp)
-    if half_to_float and x.dtype in (torch.bfloat16, torch.float16):
-        x = x.to(torch.float32)
-    x_sum = torch.log(torch.sum(torch.exp(x), dim, keepdim=True))
-    return x - x_sum
 
 
 @register_decomposition([aten.t])
@@ -370,6 +355,11 @@ def index_put(self, indices, values, accumulate=False):
     return torch.index_put_(self.clone(), indices, values, accumulate)
 
 
+@register_decomposition([aten.scatter_add])
+def scatter_add(self, dim, index, src):
+    return self.clone().scatter_add_(dim, index, src)
+
+
 @register_decomposition([aten.narrow])
 def narrow(self, dim, start, length):
     return aten.slice(self, dim, start, start + length)
@@ -384,6 +374,11 @@ def conj_physical(self):
 @register_decomposition([aten.lift])
 def lift(self):
     return self
+
+
+@register_decomposition([aten.sgn])
+def sgn(self):
+    return torch.where(self == 0, torch.zeros_like(self), self / torch.abs(self))
 
 
 @register_decomposition([aten.type_as])
