@@ -44,6 +44,12 @@ export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
 # cd triton/python
 # pip install cmake
 # pip install -e .
+#
+# Step 5: Install torch_tensorrt (for inference experiments)
+# cd /fsx/users/${USER}
+# git clone https://github.com/pytorch/TensorRT
+# cd /fsx/users/${USER}/TensorRT
+# cd py && python3 setup.py install --fx-only
 
 cd /fsx/users/${USER}/torchdynamo_yf225
 
@@ -54,3 +60,5 @@ cd /fsx/users/${USER}/torchdynamo_yf225
 # Inference
 ./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --inductor  # TorchInductor + Triton
 ./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --backend=cudagraphs_ts --nvfuser  # NVFuser
+./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --speedup-trt  # TensorRT (no TorchDynamo)
+./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --speedup-fx2trt-fp16  # FX to TensorRT (use TorchDynamo)
