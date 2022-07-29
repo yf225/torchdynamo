@@ -25,7 +25,6 @@ template_kernels = [ir.Convolution]
 
 log = logging.getLogger(__name__)
 
-
 INDUCTOR_SCHEDULER_GRAPH = bool(os.environ.get("INDUCTOR_SCHEDULER_GRAPH", None) == "1")
 
 
@@ -433,7 +432,6 @@ def get_fake_func(name):
 def create_fx_from_buffers(nodes, fname, print_graph=False):
     """
     Draw a graph in fname.svg.
-
     nodes is a list of SchedulerNode objects.
     """
 
@@ -466,7 +464,11 @@ def create_fx_from_buffers(nodes, fname, print_graph=False):
         if isinstance(node, ir.ComputedBuffer):
             dtype = node.data.dtype
 
-        stride = node.get_stride()
+        try:
+            stride = node.get_stride()
+        except AttributeError:
+            stride = None
+
         layout = type(node.layout)
 
         if isinstance(snode, NopKernelSchedulerNode):
@@ -562,9 +564,18 @@ class Scheduler:
         self.name_to_node = {node.get_name(): node for node in self.nodes}
 
         if INDUCTOR_SCHEDULER_GRAPH:
-            from functorch._src.aot_autograd import get_graph_being_compiled
 
-            graph_name = get_graph_being_compiled()
+            try:
+                from functorch._src.aot_autograd import get_graph_being_compiled
+
+                graph_name = get_graph_being_compiled()
+            except ImportError:
+                logging.warning(
+                    "Could not get graph name from `get_graph_being_compiled` \
+                    in functorch, use 'model' as default"
+                )
+                graph_name = "model"
+
             create_fx_from_buffers(self.nodes, graph_name, print_graph=True)
 
         # some new constants could have been created above
