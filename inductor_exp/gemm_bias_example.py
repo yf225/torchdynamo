@@ -8,6 +8,7 @@ from torchinductor.compile_fx import compile_fx_inner
 import torch
 import torch.fx as fx
 
+torchinductor.config.triton.use_mm = True
 torchinductor.config.debug = True
 
 def f(a, b, bias):
