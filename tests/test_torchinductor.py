@@ -295,6 +295,10 @@ class TestIndexingSimplification(unittest.TestCase):
             IndexingDiv(i1 + 2 * i2, 32),
         )
 
+        expr = ModularIndexing(2 * i2 + r3, 1, 64)
+        # modular indexing is removed if base is smaller than modulo
+        self.assertEqual(sizevars.simplify_with_ranges(expr, var_ranges), 2 * i2 + r3)
+
         # check the same thing but with symbolic divisor
         self.assertEqual(IndexingDiv(r3 * i0, r3), i0)
         self.assertEqual(ModularIndexing(r3 * i0, r3, 10), ModularIndexing(i0, 1, 10))
@@ -336,21 +340,47 @@ class TestIndexingSimplification(unittest.TestCase):
             2 * ModularIndexing(i0, 1, 128),
         )
 
+        # it should work when divisor is not 1
+        expr2 = ModularIndexing(i0, 3, 32) + 32 * ModularIndexing(i0, 32 * 3, 4)
+        simplified = sizevars.simplify_with_ranges(expr2, {})
+        self.assertEqual(simplified, ModularIndexing(i0, 3, 128))
+        self.assertEqual(expr2.subs({i0: 39485}), simplified.subs({i0: 39485}))
+
         # it should not happen in this case as the modulus is wrong
-        expr2 = ModularIndexing(i0, 1, 30) + 32 * ModularIndexing(i0, 32, 4)
-        self.assertEqual(sizevars.simplify_with_ranges(expr2, {}), expr2)
+        expr3 = ModularIndexing(i0, 1, 30) + 32 * ModularIndexing(i0, 32, 4)
+        self.assertEqual(sizevars.simplify_with_ranges(expr3, {}), expr3)
 
         # check that it also works with a modulus>1
-        expr3 = ModularIndexing(i0, 10, i1) + i1 * ModularIndexing(i0, i1, i2)
-        self.assertEqual(
-            sizevars.simplify_with_ranges(expr3, {}), ModularIndexing(i0, 10, i1 * i2)
-        )
+        expr4 = ModularIndexing(i0, 10, i1) + i1 * ModularIndexing(i0, i1 * 10, i2)
+        res0 = expr4.subs({i0: 24056, i1: 13, i2: 19})
+        simplified = sizevars.simplify_with_ranges(expr4, {})
+        res1 = simplified.subs({i0: 24056, i1: 13, i2: 19})
+        self.assertEqual(res0, res1)
+        self.assertEqual(simplified, ModularIndexing(i0, 10, i1 * i2))
 
         # and also works with an offset
         self.assertEqual(
-            sizevars.simplify_with_ranges(expr3 + 10, {}),
+            sizevars.simplify_with_ranges(expr4 + 10, {}),
             ModularIndexing(i0, 10, i1 * i2) + 10,
         )
+
+        # works for ModularIndexing + IndexingDiv
+        expr5 = 197 * IndexingDiv(i0, 197) + ModularIndexing(i0, 1, 197)
+        simplified = sizevars.simplify_with_ranges(expr5, {})
+        self.assertEqual(simplified, i0)
+        self.assertEqual(expr5.subs({i0: 39485}), simplified.subs({i0: 39485}))
+
+        # works with a scale
+        self.assertEqual(
+            sizevars.simplify_with_ranges(2 * expr5, {}),
+            2 * i0,
+        )
+
+        # divisor != 1
+        expr6 = 197 * IndexingDiv(i0, 197 * 3) + ModularIndexing(i0, 3, 197)
+        simplified = sizevars.simplify_with_ranges(expr6, {})
+        self.assertEqual(simplified, IndexingDiv(i0, 3))
+        self.assertEqual(expr6.subs({i0: 39485}), simplified.subs({i0: 39485}))
 
 
 class CommonTemplate:
@@ -617,12 +647,8 @@ class CommonTemplate:
         self.common(fn, (torch.randn(8, 8) * 100, torch.randn(8, 8) * 10))
 
     def test_round_correctness(self):
-        if self.device == "cuda" and (
-            not torchinductor.utils.has_triton_libdevice()
-            # TODO(jansel): need to debug issue on V100 cards
-            or torch.cuda.get_device_capability() < (8,)
-        ):
-            raise unittest.SkipTest("requires triton.language.libdevice")
+        if self.device == "cuda":
+            raise unittest.SkipTest("need to debug tl.libdevice on A100/V100")
 
         def fn(a):
             return torch.round(a)
@@ -2161,6 +2187,49 @@ class CommonTemplate:
             ],
         )
 
+    def test_scatter1(self):
+        def fn(a, dim, index, b):
+            return aten.scatter(a, dim, index, b)
+
+        self.common(
+            fn,
+            [
+                torch.zeros(2, 3),
+                0,
+                torch.tensor([[0]]),
+                torch.ones(2, 3),
+            ],
+        )
+
+    def test_scatter2(self):
+        def fn(a, dim, index, b):
+            return aten.scatter(a, dim, index, b, reduce="add")
+
+        self.common(
+            fn,
+            [
+                torch.zeros(64, 512),
+                0,
+                torch.zeros((64, 512), dtype=torch.int64),
+                torch.ones(64, 512),
+            ],
+        )
+
+    def test_scatter3(self):
+        def fn(a, dim, index, b):
+            return aten.scatter(a, dim, index, b, reduce="add")
+
+        self.common(
+            fn,
+            [
+                torch.randn(5, 29, 13),
+                2,
+                torch.tensor([[[3, 5, 7, 9]]]),
+                0.8,  # src can be a scalar
+            ],
+        )
+
+    @unittest.skip("Flaky test, needs debugging")
     def test_scatter_add1(self):
         def fn(a, dim, index, b):
             return aten.scatter_add(a, dim, index, b)
@@ -2200,6 +2269,34 @@ class CommonTemplate:
                 2,
                 torch.tensor([[[3, 5, 7, 9]]]),
                 torch.randn(1, 1, 10),
+            ],
+        )
+
+    def test_scatter_reduce1(self):
+        def fn(a, dim, index, b):
+            return aten.scatter_reduce(a, dim, index, b, "sum")
+
+        self.common(
+            fn,
+            [
+                torch.randn(5, 29, 13),
+                2,
+                torch.tensor([[[3, 5, 7, 9]]]),
+                torch.randn(1, 1, 10),
+            ],
+        )
+
+    def test_scatter_reduce2(self):
+        def fn(a, dim, index, b):
+            return aten.scatter_reduce(a, dim, index, b, "sum", include_self=False)
+
+        self.common(
+            fn,
+            [
+                torch.randn(2, 3),
+                0,
+                torch.zeros((2, 3), dtype=torch.int64),
+                torch.randn(2, 3),
             ],
         )
 
@@ -2253,6 +2350,40 @@ class CommonTemplate:
                 # different calls, different values
                 self.assertFalse(torch.allclose(a0, a1))
                 self.assertFalse(torch.allclose(a1, a2))
+
+    @patch.object(config, "aot_autograd", False)
+    def test_rand_like_deterministic(self):
+        @torchdynamo.optimize("inductor")
+        def fn(a):
+            return torch.rand_like(a), torch.rand_like(a)
+
+        x = torch.ones(1024, device=self.device, dtype=torch.float32)
+
+        torch.manual_seed(1234)
+        a0 = fn(x)[0].clone()
+        a1 = fn(x)[0].clone()
+        a2 = fn(x)[0].clone()
+
+        torch.manual_seed(1234)
+        b0 = fn(x)[0].clone()
+        b1 = fn(x)[0].clone()
+        b2 = fn(x)[0].clone()
+
+        # same seed, same values
+        self.assertTrue(torch.allclose(a0, b0))
+        self.assertTrue(torch.allclose(a1, b1))
+        self.assertTrue(torch.allclose(a2, b2))
+
+        # different calls, different values
+        self.assertFalse(torch.allclose(a0, a1))
+        self.assertFalse(torch.allclose(a1, a2))
+
+        c, d = fn(x)
+        self.assertFalse(torch.allclose(c, d))
+        self.assertTrue((c >= 0).all())
+        self.assertTrue((c < 1).all())
+        self.assertTrue((d >= 0).all())
+        self.assertTrue((d < 1).all())
 
     def test_max_pool2d_with_indices_backward(self):
         def fn(a, b, c):
