@@ -328,6 +328,7 @@ class RangeTreeRoot(RangeTree):
         if self.is_loop():
             code.writeline(f"{self.name} = {x}offset + {x}base")
         else:
+            raise Exception
             code.writelines(
                 [
                     f"{x}offset = tl.program_id({self.index}) * {x.upper()}BLOCK",
