@@ -156,7 +156,7 @@ class ExternKernelSchedulerNode(BaseSchedulerNode):
         return False
 
     def update_dep_type(self):
-        assert isinstance(self.node, ir.Convolution)
+        assert isinstance(self.node, cutlass_template_kernels + triton_template_kernels)
         assert len(self.read_writes.writes) == 1
         write = self.read_writes.writes.pop()
         if isinstance(write, StarDep):
@@ -861,9 +861,10 @@ class Scheduler:
     def codegen_extern_call(self, scheduler_node: ExternKernelSchedulerNode):
         assert isinstance(scheduler_node, ExternKernelSchedulerNode)
         node = scheduler_node.node
+        print(f"type(node): {type(node)}")
         self.flush()
         if should_use_template(node):
-            if config.triton.use_cutlass:
+            if config.triton.use_cutlass and type(node) in cutlass_template_kernels:
                 cutlass_template_codegen(self, scheduler_node)
             else:
                 triton_template_codegen(self, scheduler_node)
