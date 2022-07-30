@@ -1,0 +1,105 @@
+import torch
+
+from torchinductor.triton_ops.conv_perf_model import early_config_prune
+from torchinductor.triton_ops.conv_perf_model import estimate_conv_time
+
+# TODO(yf225): fix input parameters
+
+@hpcfuser.autotune(
+    configs=[
+        # basic configs for compute-bound matmuls
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 32}, num_stages=2, num_warps=8),
+        triton.Config({"BLOCK_M": 256, "BLOCK_N": 64, "BLOCK_K": 32}, num_stages=2, num_warps=8),
+        triton.Config({"BLOCK_M": 256, "BLOCK_N": 32, "BLOCK_K": 32}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 256, "BLOCK_N": 32, "BLOCK_K": 64}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 256, "BLOCK_N": 16, "BLOCK_K": 32}, num_stages=4, num_warps=2),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 128, "BLOCK_K": 32}, num_stages=4, num_warps=8),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 64, "BLOCK_K": 32}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 32, "BLOCK_K": 32}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 64, "BLOCK_K": 32}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 16, "BLOCK_K": 32}, num_stages=4, num_warps=4),
+        # good for int8
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 128}, num_stages=3, num_warps=8),
+        triton.Config({"BLOCK_M": 256, "BLOCK_N": 64, "BLOCK_K": 128}, num_stages=3, num_warps=8),
+        triton.Config({"BLOCK_M": 256, "BLOCK_N": 32, "BLOCK_K": 128}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 128, "BLOCK_K": 128}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 64, "BLOCK_K": 128}, num_stages=4, num_warps=4),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 32, "BLOCK_K": 64}, num_stages=4, num_warps=2),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 64, "BLOCK_K": 64}, num_stages=4, num_warps=2),
+        triton.Config({"BLOCK_M": 128, "BLOCK_N": 16, "BLOCK_K": 64}, num_stages=4, num_warps=2),
+        triton.Config({"BLOCK_M": 64, "BLOCK_N": 16, "BLOCK_K": 64}, num_stages=5, num_warps=2),
+    ],
+    # the above configs will be evaluated anytime the key changes
+    key=[
+        "BATCH",
+        "IN_C",
+        "IN_H",
+        "IN_W",
+        "KERNEL_N",
+        "KERNEL_H",
+        "KERNEL_W",
+        "OUT_H",
+        "OUT_W",
+        # parameters of conv
+        "stride_h",
+        "stride_w",
+        "padding_h",
+        "padding_w",
+        "dilation_h",
+        "dilation_w",
+        "output_padding_h",
+        "output_padding_w",
+        "groups",
+    ],
+    prune_configs_by={
+        "early_config_prune": early_config_prune,
+        "perf_model": estimate_conv_time,
+        "top_k": 10,
+    },
+)
+@hpcfuser.jit
+def {{kernel_name}}(
+    {% for i in template_inout_argdefs %}
+    {{i}},
+    {% endfor %}
+    # stride of tensor
+    stride_am,
+    stride_ak,
+    stride_bk,
+    stride_bn,
+    stride_cm,
+    stride_cn,
+    # Tensor dimensions
+    BATCH,
+    M,
+    N,
+    K,
+    # parameters of conv
+    stride_h: tl.constexpr,
+    stride_w: tl.constexpr,
+    padding_h: tl.constexpr,
+    padding_w: tl.constexpr,
+    dilation_h: tl.constexpr,
+    dilation_w: tl.constexpr,
+    output_padding_h: tl.constexpr,
+    output_padding_w: tl.constexpr,
+    # fusable kernels args
+    {% for i in extra_argdefs %}
+    {{i}},
+    {% endfor %}
+):
+    acc = acc.to({{out_def}}.dtype.element_ty)
+
+    y_ptrs = (
+        {{out_def}}
+        + off_y_n[:, None] * stride_yn
+        + off_y_h[:, None] * stride_yh
+        + off_y_w[:, None] * stride_yw
+        + off_y_k[None, :] * stride_yc
+    )
+
+{% if pointwise_code %}
+{{ pointwise_code | indent(4, true) }}
+{% endif %}
+
+    return ???

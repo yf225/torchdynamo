@@ -1,6 +1,26 @@
 """
 Questions to resolve:
-1. There doesn't seem to be GEMM+bias fusion happening :(
+1. What CUTLASS code should we generate? Ideally it's autotuning configs + populated kernel template, and then upon first run we find the best tile sizes etc.
+e.g.
+
+```
+@hpcfuser.autotune(configs=[...])
+@hpcfuser.jit
+def gemm_unary_epilogue(a, b, unary_epilogue_ops: List[Op], out):
+    # fuse GEMM and all the unary epilogue ops
+    ...
+```
+or
+```
+@hpcfuser.autotune(configs=[...])
+@hpcfuser.jit
+def gemm_epilogue(a, b, epilogue_ops: List[Union[UnaryOp, BinaryOp]], out):
+    # fuse GEMM and all the epilogue ops
+    ...
+```
+
+TODO Next step:
+1. Generate a dumb cutlass kernel with input shapes and the epilogue op info
 """
 
 import torchinductor

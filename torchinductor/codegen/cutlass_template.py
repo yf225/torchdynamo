@@ -222,7 +222,6 @@ def template_codegen(scheduler, scheduler_node):
         tile1, tile2, _ = group
         # scheduler.pop_group will keep iterating all reachable fusable SchedulerNodes
         # NOTE(yf225): this is where we find epilogue fusion opportunities
-        # Question: what code should we generate? Ideally it's autotuning configs + populated kernel template, and then upon first run we find the best tile sizes etc.
         if isinstance(kernel.node, ir.Convolution):
             # Add pointwise with compatible dimensions
             for node in scheduler.pop_group(
