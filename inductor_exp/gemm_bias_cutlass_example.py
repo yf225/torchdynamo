@@ -30,15 +30,17 @@ import torch.fx as fx
 torchinductor.config.triton.use_cutlass = True
 torchinductor.config.debug = True
 
-def f(a, b, bias):
+def f(a, b, bias, mul):
     c = torch.mm(a, b)
     d = c + bias
-    return (c, d)
+    e = b * mul
+    return (c, d, e)
 
 inps = [
     torch.empty(3, 4, device='cuda', requires_grad=True),  # a
     torch.empty(4, 5, device='cuda', requires_grad=True),  # b
     torch.empty(5, device='cuda', requires_grad=True),  # bias
+    torch.empty(4, 5, device='cuda', requires_grad=True),  # e
 ]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)

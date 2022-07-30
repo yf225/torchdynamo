@@ -420,7 +420,7 @@ class CommonTemplate:
 
         self.common(fn, (torch.randn(8), torch.randn(8)))
 
-    def test_horizonal_fusion1(self):
+    def test_horizontal_fusion1(self):
         def fn(a, b, c):
             return (a + b, a - c, b * c)
 
@@ -428,7 +428,7 @@ class CommonTemplate:
             fn, (torch.randn(8, 16, 16), torch.randn(8, 16, 16), torch.randn(1, 16, 1))
         )
 
-    def test_horizonal_fusion2(self):
+    def test_horizontal_fusion2(self):
         def fn(a, b, c):
             return a + 1, b + 2, c + 3
 

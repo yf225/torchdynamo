@@ -328,7 +328,6 @@ class RangeTreeRoot(RangeTree):
         if self.is_loop():
             code.writeline(f"{self.name} = {x}offset + {x}base")
         else:
-            raise Exception
             code.writelines(
                 [
                     f"{x}offset = tl.program_id({self.index}) * {x.upper()}BLOCK",
@@ -898,7 +897,7 @@ class TritonScheduling:
                         node.mark_fusable()
 
                 # the rest of this function could be correctly removed
-                # it is various cases of horizonal fusions
+                # it is various cases of horizontal fusions
                 if kernel.inside_reduction:
                     # TODO(jansel): rewrite this to support tiled reductions
                     group, reduction_group = groups
