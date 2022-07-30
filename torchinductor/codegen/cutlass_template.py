@@ -247,7 +247,30 @@ def template_codegen(scheduler, scheduler_node):
                     could_remove_kernel_buf = True
                 except CantSplit:
                     reschedule.append(node)
-        # elif isinstance(kernel.node, ir.MatrixMultiply):
+        elif isinstance(kernel.node, ir.MatrixMultiply):
+            # Add pointwise with compatible dimensions
+            for node in scheduler.pop_group(
+                (tile1 * tile2, sympy.Integer(1)),
+            ):
+                # if not channel_last layout (data.get_stride()[1] != 1),
+                # reorder node loop ordering to channel last
+                # so that it could be fused with convolution and
+                # have correct results of split_and_set_ranges()
+                # if len(node.node.get_size()) == 4 and node.node.get_stride()[1] != 1:
+                #     node.reorder_channel_last()
+                # make sure we force the reads of conv are channel_last layout
+                if len(node.node.get_size()) == 4:
+                    assert node.node.get_stride()[1] == 1
+                try:
+                    node.run(*kernel.split_and_set_ranges(node.get_ranges()))
+                    node.mark_fusable()
+                    fuse = True
+                    fusable_nodes.append(node)
+                    # if node.output buffer has the same stride/size as kernel output buffer
+                    # replace kernel output buffer name as node.output buffer
+                    could_remove_kernel_buf = True
+                except CantSplit:
+                    reschedule.append(node)
         else:
             for node in scheduler.pop_group(group):
                 # scheduler.maybe_remove_buffer(node, check_group=is_group_matching)
