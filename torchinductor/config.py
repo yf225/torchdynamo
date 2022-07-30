@@ -90,3 +90,7 @@ class triton:
     use_mm = False
 
     use_bmm = False
+
+    # enable using CUTLASS for GEMM / Conv fusion
+    use_cutlass = False
+
