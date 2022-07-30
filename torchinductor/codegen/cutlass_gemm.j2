@@ -1,59 +1,24 @@
 import torch
 
-from torchinductor.triton_ops.conv_perf_model import early_config_prune
-from torchinductor.triton_ops.conv_perf_model import estimate_conv_time
+generated_kernel = jinja2.Template("""
+# ... The generated GEMM epilogue fusion kernel ...
+# ... 
+# {% if pointwise_code %}
+# {{ pointwise_code | indent(4, true) }}
+# {% endif %}
+# ...
+""")
 
-# TODO(yf225): fix input parameters
-
-@hpcfuser.autotune(
-    configs=[],
-    # the above configs will be evaluated anytime the key changes
-    key=[],
-    prune_configs_by={},
-)
-@hpcfuser.jit
+# TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
+@hpcfuser.cached
 def {{kernel_name}}(
     {% for i in template_inout_argdefs %}
     {{i}},
     {% endfor %}
-    # stride of tensor
-    stride_am,
-    stride_ak,
-    stride_bk,
-    stride_bn,
-    stride_cm,
-    stride_cn,
-    # Tensor dimensions
-    BATCH,
-    M,
-    N,
-    K,
-    # parameters of conv
-    stride_h: tl.constexpr,
-    stride_w: tl.constexpr,
-    padding_h: tl.constexpr,
-    padding_w: tl.constexpr,
-    dilation_h: tl.constexpr,
-    dilation_w: tl.constexpr,
-    output_padding_h: tl.constexpr,
-    output_padding_w: tl.constexpr,
-    # fusable kernels args
-    {% for i in extra_argdefs %}
-    {{i}},
-    {% endfor %}
 ):
-    acc = acc.to({{out_def}}.dtype.element_ty)
-
-    y_ptrs = (
-        {{out_def}}
-        + off_y_n[:, None] * stride_yn
-        + off_y_h[:, None] * stride_yh
-        + off_y_w[:, None] * stride_yw
-        + off_y_k[None, :] * stride_yc
+    # TODO(yf225): this requires just-in-time complication, see if can reuse CUTLASS-Python infra.
+    return hpcfuser.autotune(configs=[...])(generated_kernel)(
+        {% for i in template_inout_argdefs %}
+        {{i}},
+        {% endfor %}
     )
-
-{% if pointwise_code %}
-{{ pointwise_code | indent(4, true) }}
-{% endif %}
-
-    return

@@ -2103,7 +2103,7 @@ class MatrixMultiply(ExternKernelOut):
         )
         args_dict = OrderedDict(
             [
-                # TODO(yf225)
+                # TODO(yf225): get args needed for CUTLASS template
                 # ("stride_xn", f"{self.inputs[0].get_stride()[0]}"),
                 # ("stride_xc", f"{self.inputs[0].get_stride()[1]}"),
                 # ("stride_xh", f"{self.inputs[0].get_stride()[2]}"),
@@ -2162,7 +2162,7 @@ class MatrixMultiply(ExternKernelOut):
         # dict for tl.constexpr
         const_dict = OrderedDict(
             [
-                # TODO(yf225)
+                # TODO(yf225): get args needed for CUTLASS template
                 # ("ACC_TYPE", ACC_TYPE),
                 # ("CONV1X1_NHWC", CONV1X1_NHWC),
             ]
@@ -2171,7 +2171,7 @@ class MatrixMultiply(ExternKernelOut):
         # dict for non-kernel args (e.g. delta_x_ptr)
         other_dict = OrderedDict(
             [
-                # TODO(yf225)
+                # TODO(yf225): get args needed for CUTLASS template
                 # ("device", f'"{self.inputs[0].get_device()}"'),
             ]
         )
