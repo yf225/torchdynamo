@@ -6,56 +6,10 @@ from torchinductor.triton_ops.conv_perf_model import estimate_conv_time
 # TODO(yf225): fix input parameters
 
 @hpcfuser.autotune(
-    configs=[
-        # basic configs for compute-bound matmuls
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 32}, num_stages=2, num_warps=8),
-        triton.Config({"BLOCK_M": 256, "BLOCK_N": 64, "BLOCK_K": 32}, num_stages=2, num_warps=8),
-        triton.Config({"BLOCK_M": 256, "BLOCK_N": 32, "BLOCK_K": 32}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 256, "BLOCK_N": 32, "BLOCK_K": 64}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 256, "BLOCK_N": 16, "BLOCK_K": 32}, num_stages=4, num_warps=2),
-        triton.Config({"BLOCK_M": 64, "BLOCK_N": 128, "BLOCK_K": 32}, num_stages=4, num_warps=8),
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 64, "BLOCK_K": 32}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 32, "BLOCK_K": 32}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 64, "BLOCK_N": 64, "BLOCK_K": 32}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 16, "BLOCK_K": 32}, num_stages=4, num_warps=4),
-        # good for int8
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 128, "BLOCK_K": 128}, num_stages=3, num_warps=8),
-        triton.Config({"BLOCK_M": 256, "BLOCK_N": 64, "BLOCK_K": 128}, num_stages=3, num_warps=8),
-        triton.Config({"BLOCK_M": 256, "BLOCK_N": 32, "BLOCK_K": 128}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 64, "BLOCK_N": 128, "BLOCK_K": 128}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 64, "BLOCK_K": 128}, num_stages=4, num_warps=4),
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 32, "BLOCK_K": 64}, num_stages=4, num_warps=2),
-        triton.Config({"BLOCK_M": 64, "BLOCK_N": 64, "BLOCK_K": 64}, num_stages=4, num_warps=2),
-        triton.Config({"BLOCK_M": 128, "BLOCK_N": 16, "BLOCK_K": 64}, num_stages=4, num_warps=2),
-        triton.Config({"BLOCK_M": 64, "BLOCK_N": 16, "BLOCK_K": 64}, num_stages=5, num_warps=2),
-    ],
+    configs=[],
     # the above configs will be evaluated anytime the key changes
-    key=[
-        "BATCH",
-        "IN_C",
-        "IN_H",
-        "IN_W",
-        "KERNEL_N",
-        "KERNEL_H",
-        "KERNEL_W",
-        "OUT_H",
-        "OUT_W",
-        # parameters of conv
-        "stride_h",
-        "stride_w",
-        "padding_h",
-        "padding_w",
-        "dilation_h",
-        "dilation_w",
-        "output_padding_h",
-        "output_padding_w",
-        "groups",
-    ],
-    prune_configs_by={
-        "early_config_prune": early_config_prune,
-        "perf_model": estimate_conv_time,
-        "top_k": 10,
-    },
+    key=[],
+    prune_configs_by={},
 )
 @hpcfuser.jit
 def {{kernel_name}}(
@@ -102,4 +56,4 @@ def {{kernel_name}}(
 {{ pointwise_code | indent(4, true) }}
 {% endif %}
 
-    return ???
+    return
