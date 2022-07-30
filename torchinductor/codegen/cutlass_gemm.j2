@@ -177,10 +177,12 @@ def {{kernel_name}}(
     # arguments.C = rt.TensorRef(tensor_C_d, M)
     # arguments.D = rt.TensorRef(tensor_D_d, M)
 
-    arguments.A = rt.TensorRef(c_void_p(tensor_A_torch.data_ptr()), M)
-    arguments.B = rt.TensorRef(c_void_p(tensor_B_torch.data_ptr()), N)
-    arguments.C = rt.TensorRef(c_void_p(tensor_C_torch.data_ptr()), M)
-    arguments.D = rt.TensorRef(c_void_p(tensor_D_torch.data_ptr()), M)
+    print(f"tensor_A_torch.data_ptr(): {tensor_A_torch.data_ptr()}")
+
+    arguments.A = rt.TensorRef(tensor_A_torch.data_ptr(), M)
+    arguments.B = rt.TensorRef(tensor_B_torch.data_ptr(), N)
+    arguments.C = rt.TensorRef(tensor_C_torch.data_ptr(), M)
+    arguments.D = rt.TensorRef(tensor_D_torch.data_ptr(), M)
 
     host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
     device_workspace = None
