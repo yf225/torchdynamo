@@ -1,8 +1,3 @@
-"""
-Questions to resolve:
-1. There doesn't seem to be GEMM+bias fusion happening :(
-"""
-
 import torchinductor
 import torchinductor.config
 from torch.fx.experimental.proxy_tensor import make_fx

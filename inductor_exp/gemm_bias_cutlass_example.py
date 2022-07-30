@@ -1,23 +1,3 @@
-"""
-Questions to resolve:
-1. What CUTLASS code should we generate? Ideally it's autotuning configs + populated kernel template, and then upon first run we find the best tile sizes etc.
-e.g.
-
-```
-generated_kernel = jinja2.Template("""
-# ... The generated GEMM epilogue fusion kernel ...
-""")
-
-@hpcfuser.cached  # Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
-def call_generated_kernel(ins, outs):
-    # TODO(yf225): this requires just-in-time compilation, see if can reuse CUTLASS-Python infra.
-    return hpcfuser.autotune(configs=[...])(generated_kernel)(*ins)
-```
-
-TODO Next step:
-1. Generate the actual GEMM+bias kernel with provided GEMM info and bias info
-"""
-
 import torchinductor
 import torchinductor.config
 from torch.fx.experimental.proxy_tensor import make_fx

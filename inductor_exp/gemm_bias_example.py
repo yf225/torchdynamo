@@ -1,8 +1,3 @@
-"""
-Questions to resolve:
-1. There doesn't seem to be GEMM+bias fusion happening :(
-"""
-
 import torchinductor
 import torchinductor.config
 from torch.fx.experimental.proxy_tensor import make_fx
@@ -84,7 +79,7 @@ def call(a_1, b_1, bias_1):
     triton_mm_out(a_1, b_1, out=buf0)                                                            <- GEMM kernel
     buf1 = empty_strided((s0, s2), (s2, 1), device='cuda', dtype=torch.float32)
     kernel0_xnumel = s0*s2
-    kernel0[grid(kernel0_xnumel)](buf0, bias_1, buf1, s0, s2, kernel0_xnumel)                    <- Add kernel
+    kernel0[grid(kernel0_xnumel)](buf0, bias_1, buf1, s0, s2, kernel0_xnumel)                    <- Add kernel. Notice we have no GEMM+pointwise fusion for Inductor+Triton yet
     return (buf0, buf1, )
 
 
