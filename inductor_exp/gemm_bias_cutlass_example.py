@@ -12,6 +12,7 @@ import torch
 import torch.fx as fx
 
 torchinductor.config.triton.use_mm = True
+torchinductor.config.triton.use_cutlass = True
 torchinductor.config.debug = True
 
 def f(a, b, bias):

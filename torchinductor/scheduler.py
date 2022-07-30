@@ -15,13 +15,15 @@ import torch
 from . import config
 from . import dependencies
 from . import ir
-from .codegen.triton_template import template_codegen
+from .codegen.triton_template import template_codegen as triton_template_codegen
+from .codegen.cutlass_template import template_codegen as cutlass_template_codegen
 from .dependencies import MemoryDep
 from .dependencies import StarDep
 from .sizevars import SimplifyIndexing
 from .virtualized import V
 
-template_kernels = [ir.Convolution]
+triton_template_kernels = [ir.Convolution]
+cutlass_template_kernels = [ir.Convolution, ir.MatrixMultiply]
 
 log = logging.getLogger(__name__)
 
@@ -34,10 +36,14 @@ def cmp(a, b):
 
 def should_use_template(node: ir.ExternKernel):
     return (
-        type(node) in template_kernels
+        type(node) in triton_template_kernels
         and ir.is_triton(node.get_device())
         # TODO(jansel): extend this to other kernels
         and config.triton.convolution != "aten"
+    ) or (
+        type(node) in cutlass_template_kernels
+        and ir.is_triton(node.get_device())
+        and config.triton.use_cutlass
     )
 
 
@@ -857,7 +863,10 @@ class Scheduler:
         node = scheduler_node.node
         self.flush()
         if should_use_template(node):
-            template_codegen(self, scheduler_node)
+            if config.triton.use_cutlass:
+                cutlass_template_codegen(self, scheduler_node)
+            else:
+                triton_template_codegen(self, scheduler_node)
         else:
             node.codegen(V.graph.wrapper_code)
             self.barrier()

@@ -198,6 +198,8 @@ class WrapperCodeGen(CodeGen):
                 """
             )
 
+            assert not (config.triton.use_mm and config.triton.use_cutlass)  # CUTLASS uses its own GEMM impl, so not using Triton GEMM.
+
             if config.triton.use_mm:
                 self.header.writeline(
                     "from torchinductor.triton_ops.matmul import matmul_out as triton_mm_out"
