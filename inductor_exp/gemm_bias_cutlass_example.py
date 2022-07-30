@@ -11,7 +11,7 @@ from torchinductor.compile_fx import compile_fx_inner
 import torch
 import torch.fx as fx
 
-torchinductor.config.triton.use_mm = True
+# torchinductor.config.triton.use_mm = True
 torchinductor.config.triton.use_cutlass = True
 torchinductor.config.debug = True
 
