@@ -218,8 +218,9 @@ def template_codegen(scheduler, scheduler_node):
         # otherwise, relu after conv is in blocked_nodes that could not be in
         # runnable_groups to be fused to conv
         # scheduler.barrier()
-        print(f"group: {group}")
-        tile1, tile2, _ = group
+        # tile1, tile2, _ = group
+        tile1 = group[0]
+        tile2 = group[1]
         # scheduler.pop_group will keep iterating all reachable fusable SchedulerNodes
         # NOTE(yf225): this is where we find epilogue fusion opportunities
         if isinstance(kernel.node, ir.Convolution):
