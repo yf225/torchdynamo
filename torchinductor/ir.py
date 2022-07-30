@@ -2063,7 +2063,7 @@ class MatrixMultiply(ExternKernelOut):
         """
         # TODO(yf225): I don't know if impl below is correct
 
-        # manually generate index formula for conv
+        # manually generate index formula for GEMM
         sizes = self.get_size()
         strides = self.get_stride()
         index_vars = [sympy.Symbol(f"d{i}") for i in range(len(sizes))]
@@ -2099,6 +2099,7 @@ class MatrixMultiply(ExternKernelOut):
                 ("a", f"{in_args[0]}"),
                 ("b", f"{in_args[1]}"),
                 ("c", f"{self.get_name()}"),
+                ("d", f"{self.get_name()}"),  # TODO(yf225): for input D, is it ok to reuse same tensor as input C?
             ]
         )
         args_dict = OrderedDict(

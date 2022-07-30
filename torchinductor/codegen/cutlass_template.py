@@ -81,7 +81,7 @@ class CutlassTemplateKernel(TritonKernel):
         self.pointwise_code.splice(self.assign_block_numel())
         # TODO(yf225): use info from `self` kernel to populate the fused cutlass kernel template
         # self.pointwise_code.splice(self.body)
-        self.pointwise_code.splice("# some pointwise code here")
+        self.pointwise_code.splice("#some pointwise code here")
         render_dict = {}
         render_dict["kernel_name"] = name
         render_dict["template_inout_argdefs"] = self.template_inout_argdefs
@@ -158,24 +158,24 @@ class CutlassTemplateKernel(TritonKernel):
             # else, delta_x_ptr is None
         return
 
-    def gen_grid(self, name):
-        code = IndentedBuffer()
-        if isinstance(self.node, ir.Convolution):
-            BATCH = self.args_dict["BATCH"]
-            OUT_H = self.args_dict["OUT_H"]
-            OUT_W = self.args_dict["OUT_W"]
-            KERNEL_N = self.args_dict["KERNEL_N"]
-            with code.indent():
-                code.splice(
-                    f"""
-                    def grid_{name}(META):
-                        return (
-                            triton.cdiv({BATCH} * {OUT_H} * {OUT_W}, META["BLOCK_M"]),
-                            triton.cdiv({KERNEL_N}, META["BLOCK_N"]),
-                        )
-                    """
-                )
-        return code.getvalue()
+    # def gen_grid(self, name):
+    #     code = IndentedBuffer()
+    #     if isinstance(self.node, ir.Convolution):
+    #         BATCH = self.args_dict["BATCH"]
+    #         OUT_H = self.args_dict["OUT_H"]
+    #         OUT_W = self.args_dict["OUT_W"]
+    #         KERNEL_N = self.args_dict["KERNEL_N"]
+    #         with code.indent():
+    #             code.splice(
+    #                 f"""
+    #                 def grid_{name}(META):
+    #                     return (
+    #                         triton.cdiv({BATCH} * {OUT_H} * {OUT_W}, META["BLOCK_M"]),
+    #                         triton.cdiv({KERNEL_N}, META["BLOCK_N"]),
+    #                     )
+    #                 """
+    #             )
+    #     return code.getvalue()
 
     def call_kernel(self, wrapper, name: str):
         # gen code to call kernel
@@ -190,8 +190,9 @@ class CutlassTemplateKernel(TritonKernel):
             ", " + extra_args if extra_args and len(extra_args) > 0 else ""
         )
         args_kwargs = args + ", " + self_const_kwargs
-        wrapper.writeline(self.gen_grid(name))
-        wrapper.writeline(f"{name}[grid_{name}]({args_kwargs})")
+        # wrapper.writeline(self.gen_grid(name))
+        # wrapper.writeline(f"{name}[grid_{name}]({args_kwargs})")
+        wrapper.writeline(f"{name}({args_kwargs})")
 
 
 def template_codegen(scheduler, scheduler_node):
