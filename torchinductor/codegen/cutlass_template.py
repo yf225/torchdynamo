@@ -78,7 +78,9 @@ class CutlassTemplateKernel(TritonKernel):
 
         super().codegen_body()
         self.pointwise_code = IndentedBuffer()
+        print(f"self.assign_block_numel(): {self.assign_block_numel()}")
         self.pointwise_code.splice(self.assign_block_numel())
+        print(f"self.body: {self.body}")
         self.pointwise_code.splice(self.body)
         render_dict = {}
         render_dict["kernel_name"] = name

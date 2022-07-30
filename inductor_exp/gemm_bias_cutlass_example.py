@@ -4,23 +4,18 @@ Questions to resolve:
 e.g.
 
 ```
-@hpcfuser.autotune(configs=[...])
-@hpcfuser.jit
-def gemm_unary_epilogue(a, b, unary_epilogue_ops: List[Op], out):
-    # fuse GEMM and all the unary epilogue ops
-    ...
-```
-or
-```
-@hpcfuser.autotune(configs=[...])
-@hpcfuser.jit
-def gemm_epilogue(a, b, epilogue_ops: List[Union[UnaryOp, BinaryOp]], out):
-    # fuse GEMM and all the epilogue ops
-    ...
+generated_kernel = jinja2.Template("""
+# ... The generated GEMM epilogue fusion kernel ...
+""")
+
+@hpcfuser.cached  # Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
+def call_generated_kernel(ins, outs):
+    # TODO(yf225): this requires just-in-time complication, see if can reuse CUTLASS-Python infra.
+    return hpcfuser.autotune(configs=[...])(generated_kernel)(*ins)
 ```
 
 TODO Next step:
-1. Generate a dumb cutlass kernel with input shapes and the epilogue op info
+1. Generate the actual GEMM+bias kernel with provided GEMM info and bias info
 """
 
 import torchinductor
