@@ -2104,6 +2104,9 @@ class MatrixMultiply(ExternKernelOut):
         args_dict = OrderedDict(
             [
                 # TODO(yf225): get args needed for CUTLASS template
+                ("M", f"self.inputs[0].get_size()[0]"),
+                ("N", f"self.inputs[1].get_size()[1]"),
+                ("K", f"self.inputs[0].get_size()[1]"),
                 # ("stride_xn", f"{self.inputs[0].get_stride()[0]}"),
                 # ("stride_xc", f"{self.inputs[0].get_stride()[1]}"),
                 # ("stride_xh", f"{self.inputs[0].get_stride()[2]}"),
