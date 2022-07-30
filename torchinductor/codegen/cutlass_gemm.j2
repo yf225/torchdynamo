@@ -34,9 +34,9 @@ def {{kernel_name}}(
     {% for i in template_inout_argdefs %}
     {{i}},
     {% endfor %}
-    {{M}},
-    {{N}},
-    {{K}},
+    M,
+    N,
+    K,
 ):
     # # TODO(yf225): this requires just-in-time compilation, see if can reuse CUTLASS-Python infra.
     # return hpcfuser.autotune(configs=[...])(generated_kernel)(
