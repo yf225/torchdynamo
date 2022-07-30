@@ -179,6 +179,7 @@ def {{kernel_name}}(
 
     print(f"tensor_A_d: {tensor_A_d}")
     print(f"tensor_A_torch.data_ptr(): {tensor_A_torch.data_ptr()}")
+    print(f"cuda.CUdeviceptr(tensor_A_torch.data_ptr()): {cuda.CUdeviceptr(tensor_A_torch.data_ptr())}")
 
     arguments.A = rt.TensorRef(tensor_A_torch.data_ptr(), M)
     arguments.B = rt.TensorRef(tensor_B_torch.data_ptr(), N)
