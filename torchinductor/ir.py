@@ -2057,6 +2057,99 @@ class MatrixMultiply(ExternKernelOut):
             inputs=[a, b],
         )
 
+    def map_args(self):
+        # a, b
+        in_args = [x.codegen_reference() for x in self.inputs]
+        # # stride, padding, dilation, transposed, output_padding, groups
+        # const_args = self.constant_args
+        # if len(in_args) < 3:
+        #     # otherwise, bias=None is the first constant_args
+        #     const_args = const_args[1:]
+
+        inout_dict = OrderedDict(
+            [
+                ("a", f"{in_args[0]}"),
+                ("b", f"{in_args[1]}"),
+                ("c", f"{self.get_name()}"),
+            ]
+        )
+        args_dict = OrderedDict(
+            [
+                # TODO(yf225)
+                # ("stride_xn", f"{self.inputs[0].get_stride()[0]}"),
+                # ("stride_xc", f"{self.inputs[0].get_stride()[1]}"),
+                # ("stride_xh", f"{self.inputs[0].get_stride()[2]}"),
+                # ("stride_xw", f"{self.inputs[0].get_stride()[3]}"),
+                # ("stride_wn", f"{self.inputs[1].get_stride()[0]}"),
+                # ("stride_wc", f"{self.inputs[1].get_stride()[1]}"),
+                # ("stride_wh", f"{self.inputs[1].get_stride()[2]}"),
+                # ("stride_ww", f"{self.inputs[1].get_stride()[3]}"),
+                # ("stride_yn", f"{self.get_stride()[0]}"),
+                # ("stride_yc", f"{self.get_stride()[1]}"),
+                # ("stride_yh", f"{self.get_stride()[2]}"),
+                # ("stride_yw", f"{self.get_stride()[3]}"),
+                # (
+                #     "stride_biasn",
+                #     f"{self.inputs[0].get_stride()[0]}"
+                #     if len(in_args) >= 3
+                #     else "None",
+                # ),
+                # ("delta_x_ptr", "None"),
+                # ("BATCH", f"{self.inputs[0].get_size()[0]}"),
+                # ("IN_C", f"{self.inputs[0].get_size()[1]}"),
+                # ("IN_H", f"{self.inputs[0].get_size()[2]}"),
+                # ("IN_W", f"{self.inputs[0].get_size()[3]}"),
+                # ("KERNEL_N", f"{self.inputs[1].get_size()[0]}"),
+                # ("KERNEL_H", f"{self.inputs[1].get_size()[2]}"),
+                # ("KERNEL_W", f"{self.inputs[1].get_size()[3]}"),
+                # ("OUT_H", f"{self.get_size()[2]}"),
+                # ("OUT_W", f"{self.get_size()[3]}"),
+                # ("stride_h", f"{const_args[0][0]}"),
+                # ("stride_w", f"{const_args[0][1]}"),
+                # ("padding_h", f"{const_args[1][0]}"),
+                # ("padding_w", f"{const_args[1][1]}"),
+                # ("dilation_h", f"{const_args[2][0]}"),
+                # ("dilation_w", f"{const_args[2][1]}"),
+                # # ("transposed", f"{const_args[3]}"),
+                # ("output_padding_h", f"{const_args[4][0]}"),
+                # ("output_padding_w", f"{const_args[4][1]}"),
+                # ("groups", f"{const_args[5]}"),
+            ]
+        )
+
+        # # accumulator type
+        # ACC_TYPE = (
+        #     "tl.float32"
+        #     if self.inputs[0].get_dtype()
+        #     in [torch.float16, torch.bfloat16, torch.float32]
+        #     else "tl.int32"
+        # )
+        # CONV1X1_NHWC = (
+        #     "True"
+        #     if self.inputs[0].get_stride()[1] == 1
+        #     and self.inputs[1].get_size()[2] == 1
+        #     and self.inputs[1].get_size()[3] == 1
+        #     else "False"
+        # )
+        # dict for tl.constexpr
+        const_dict = OrderedDict(
+            [
+                # TODO(yf225)
+                # ("ACC_TYPE", ACC_TYPE),
+                # ("CONV1X1_NHWC", CONV1X1_NHWC),
+            ]
+        )
+
+        # dict for non-kernel args (e.g. delta_x_ptr)
+        other_dict = OrderedDict(
+            [
+                # TODO(yf225)
+                # ("device", f'"{self.inputs[0].get_device()}"'),
+            ]
+        )
+
+        return inout_dict, args_dict, const_dict, other_dict
+
 
 class BatchMatrixMultiply(ExternKernelOut):
     kernel = "aten.bmm.out"
