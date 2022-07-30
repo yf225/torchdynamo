@@ -10,7 +10,7 @@ generated_kernel = jinja2.Template("""
 
 @hpcfuser.cached  # Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
 def call_generated_kernel(ins, outs):
-    # TODO(yf225): this requires just-in-time complication, see if can reuse CUTLASS-Python infra.
+    # TODO(yf225): this requires just-in-time compilation, see if can reuse CUTLASS-Python infra.
     return hpcfuser.autotune(configs=[...])(generated_kernel)(*ins)
 ```
 
