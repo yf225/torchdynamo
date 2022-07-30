@@ -30,10 +30,10 @@ import torch.fx as fx
 torchinductor.config.triton.use_cutlass = True
 torchinductor.config.debug = True
 
-def f(a, b, bias, mul):
+def f(a, b, bias, x):
     c = torch.mm(a, b)
     d = c + bias
-    e = b * mul
+    e = b * x
     return (c, d, e)
 
 inps = [
