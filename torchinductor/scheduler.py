@@ -156,7 +156,7 @@ class ExternKernelSchedulerNode(BaseSchedulerNode):
         return False
 
     def update_dep_type(self):
-        assert isinstance(self.node, cutlass_template_kernels + triton_template_kernels)
+        assert isinstance(self.node, tuple(cutlass_template_kernels + triton_template_kernels))
         assert len(self.read_writes.writes) == 1
         write = self.read_writes.writes.pop()
         if isinstance(write, StarDep):
