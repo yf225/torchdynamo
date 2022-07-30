@@ -124,10 +124,10 @@ def {{kernel_name}}(
     # Setup a workspace
     #
 
-    tensor_A = tensor_A_torch.cpu().detach().numpy()
-    tensor_B = tensor_B_torch.cpu().detach().numpy()
-    tensor_C = tensor_C_torch.cpu().detach().numpy()
-    tensor_D = tensor_D_torch.cpu().detach().numpy()
+    tensor_A = tensor_A_torch.detach().cpu().numpy()
+    tensor_B = tensor_B_torch.detach().cpu().numpy()
+    tensor_C = tensor_C_torch.detach().cpu().numpy()
+    tensor_D = tensor_D_torch.detach().cpu().numpy()
 
     err, tensor_A_d = cuda.cuMemAlloc(tensor_A.size * tensor_A.itemsize)
     if err != cuda.CUresult.CUDA_SUCCESS:
