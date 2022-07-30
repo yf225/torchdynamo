@@ -201,7 +201,7 @@ def {{kernel_name}}(
     #
     # Verify results
     #
-    err, = cuda.cuStreamSynchronize(stream)
+    # err, = cuda.cuStreamSynchronize(stream)
 
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError("CUDA Error %s" % str(err))
