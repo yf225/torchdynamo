@@ -12,6 +12,7 @@ import torch
 
 # System modules
 import numpy as np
+import os
 import os.path
 import sys
 import ctypes
@@ -26,6 +27,8 @@ import library
 import manifest as cutlass_manifest
 import generator
 import rt
+
+username = os.environ.get('USER')
 
 
 # # TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
@@ -107,8 +110,8 @@ def {{kernel_name}}(
 
     architectures = [int(cuda_arch),]
     include_paths = [
-      '../../include',
-      '../../tools/util/include',
+      f'/fsx/users/{username}/cutlass/include',
+      f'/fsx/users/{username}/cutlass/tools/util/include',
       f'/usr/local/cuda-{cuda_ver}/include',
       f'/usr/local/cuda-{cuda_ver}/targets/x86_64-linux/include',
     ]
