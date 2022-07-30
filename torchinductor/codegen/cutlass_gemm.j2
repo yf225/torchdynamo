@@ -124,45 +124,45 @@ def {{kernel_name}}(
     # Setup a workspace
     #
 
-    tensor_A = tensor_A_torch.detach().cpu().numpy()
-    tensor_B = tensor_B_torch.detach().cpu().numpy()
-    tensor_C = tensor_C_torch.detach().cpu().numpy()
-    tensor_D = tensor_D_torch.detach().cpu().numpy()
+    # tensor_A = tensor_A_torch.detach().cpu().numpy()
+    # tensor_B = tensor_B_torch.detach().cpu().numpy()
+    # tensor_C = tensor_C_torch.detach().cpu().numpy()
+    # tensor_D = tensor_D_torch.detach().cpu().numpy()
 
-    err, tensor_A_d = cuda.cuMemAlloc(tensor_A.size * tensor_A.itemsize)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, tensor_A_d = cuda.cuMemAlloc(tensor_A.size * tensor_A.itemsize)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    err, tensor_B_d = cuda.cuMemAlloc(tensor_B.size * tensor_B.itemsize)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, tensor_B_d = cuda.cuMemAlloc(tensor_B.size * tensor_B.itemsize)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    err, tensor_C_d = cuda.cuMemAlloc(tensor_C.size * tensor_C.itemsize)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, tensor_C_d = cuda.cuMemAlloc(tensor_C.size * tensor_C.itemsize)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    err, tensor_D_d = cuda.cuMemAlloc(tensor_D.size * tensor_D.itemsize)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, tensor_D_d = cuda.cuMemAlloc(tensor_D.size * tensor_D.itemsize)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    err, stream = cuda.cuStreamCreate(0)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, stream = cuda.cuStreamCreate(0)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    tensors = [
-      (tensor_A_d, tensor_A),
-      (tensor_B_d, tensor_B),
-      (tensor_C_d, tensor_C),
-      (tensor_D_d, tensor_D)
-    ]
+    # tensors = [
+    #   (tensor_A_d, tensor_A),
+    #   (tensor_B_d, tensor_B),
+    #   (tensor_C_d, tensor_C),
+    #   (tensor_D_d, tensor_D)
+    # ]
 
-    for tensor_device, tensor_host in tensors:
-      bytes = tensor_host.size * tensor_host.itemsize
-      print("Tensor has dimensions: %s (%d bytes)" % (str(tensor_host.size), tensor_host.itemsize))
-      err, = cuda.cuMemcpyHtoDAsync(tensor_device, tensor_host, bytes, stream)
-      print("updating tensor in device memory ", hex(int(tensor_device)))
-      if err != cuda.CUresult.CUDA_SUCCESS:
-        raise RuntimeError('CUDA Error %s' % str(err))
+    # for tensor_device, tensor_host in tensors:
+    #   bytes = tensor_host.size * tensor_host.itemsize
+    #   print("Tensor has dimensions: %s (%d bytes)" % (str(tensor_host.size), tensor_host.itemsize))
+    #   err, = cuda.cuMemcpyHtoDAsync(tensor_device, tensor_host, bytes, stream)
+    #   print("updating tensor in device memory ", hex(int(tensor_device)))
+    #   if err != cuda.CUresult.CUDA_SUCCESS:
+    #     raise RuntimeError('CUDA Error %s' % str(err))
 
     #
     # Initialize a host buffer
@@ -172,10 +172,15 @@ def {{kernel_name}}(
 
     arguments.problem_size = rt.GemmCoord(M, N, K)
 
-    arguments.A = rt.TensorRef(tensor_A_d, M)
-    arguments.B = rt.TensorRef(tensor_B_d, N)
-    arguments.C = rt.TensorRef(tensor_C_d, M)
-    arguments.D = rt.TensorRef(tensor_D_d, M)
+    # arguments.A = rt.TensorRef(tensor_A_d, M)
+    # arguments.B = rt.TensorRef(tensor_B_d, N)
+    # arguments.C = rt.TensorRef(tensor_C_d, M)
+    # arguments.D = rt.TensorRef(tensor_D_d, M)
+
+    arguments.A = rt.TensorRef(tensor_A.data_ptr(), M)
+    arguments.B = rt.TensorRef(tensor_B.data_ptr(), N)
+    arguments.C = rt.TensorRef(tensor_C.data_ptr(), M)
+    arguments.D = rt.TensorRef(tensor_D.data_ptr(), M)
 
     host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
     device_workspace = None
