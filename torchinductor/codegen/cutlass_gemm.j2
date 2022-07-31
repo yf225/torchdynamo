@@ -1,5 +1,4 @@
 import torch
-import torchinductor
 from torchinductor.compile_fx import stream_dict
 
 # System modules
@@ -22,11 +21,16 @@ import rt
 
 username = os.environ.get('USER')
 
-gemm_workspace_dict = {}
+gemm = None
 
+# TODO(yf225): add autotuning and kernel selection
 
-# TODO(yf225): add kernel selection and caching
 def compile_cuda_module():
+    global gemm
+
+    if gemm is not None:
+        return
+
     cuda_ver = "11.4"
     cuda_arch = "80"  # assuming A100
 
@@ -53,8 +57,6 @@ def compile_cuda_module():
     # NOTE: compilation needs to happen outside of CUDA stream capture (e.g. when capturing for CUDA graph)
     module = rt.Module('module.cu', [gemm], compilation_options)
 
-    return gemm
-
 
 # # TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
 # @cached
@@ -66,42 +68,8 @@ def {{kernel_name}}(
     N,
     K,
 ):
+    global gemm
     global stream_dict
-
-    # Formula: D = alpha * (A @ B) + beta * C
-
-    if "op" not in gemm_workspace_dict or not torchinductor.config.triton.cudagraphs:
-        gemm = compile_cuda_module()
-
-        # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
-        tensor_C_torch = torch.empty(M, N, device='cuda', dtype=tensor_A_torch.dtype)
-
-        arguments = rt.GemmArguments()
-        arguments.problem_size = rt.GemmCoord(M, N, K)
-        arguments.A = rt.TensorRef(tensor_A_torch.data_ptr(), tensor_A_torch.stride()[0])
-        arguments.B = rt.TensorRef(tensor_B_torch.data_ptr(), tensor_B_torch.stride()[0])
-        arguments.C = rt.TensorRef(tensor_C_torch.data_ptr(), tensor_C_torch.stride()[0])
-        arguments.D = rt.TensorRef(tensor_D_torch.data_ptr(), tensor_D_torch.stride()[0])
-
-        host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
-        device_workspace = None
-
-        # TODO(yf225): when we are using CUDA graph, since the input tensors are static,
-        # we only need to do CUTLASS kernel initialization at first run and re-use the gemm and workspace objects
-        # for subsequent runs.
-        launch_config = gemm.plan(arguments)
-        # `gemm.initialize()` doesn't actually need the `stream` argument, so passing None
-        byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=None)
-
-        gemm_workspace_dict["op"] = gemm
-        gemm_workspace_dict["host_workspace"] = host_workspace
-        gemm_workspace_dict["device_workspace"] = device_workspace
-        gemm_workspace_dict["launch_config"] = launch_config
-
-    gemm = gemm_workspace_dict["op"]
-    host_workspace = gemm_workspace_dict["host_workspace"]
-    device_workspace = gemm_workspace_dict["device_workspace"]
-    launch_config = gemm_workspace_dict["launch_config"]
 
     if "cutlass_stream" not in stream_dict:
         # If currently CUTLASS kernel is not required to use any pre-existing stream,
@@ -110,6 +78,27 @@ def {{kernel_name}}(
         stream_dict["cutlass_stream"] = torch.cuda.Stream()
     cuda_stream_ptr = stream_dict["cutlass_stream"].cuda_stream
 
+    # Formula: D = alpha * (A @ B) + beta * C
+    # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation,
+    # it will not be used. We need to debug this.
+    tensor_C_torch = torch.empty(M, N, device='cuda', dtype=tensor_A_torch.dtype)
+
+    arguments = rt.GemmArguments()
+    arguments.problem_size = rt.GemmCoord(M, N, K)
+    arguments.A = rt.TensorRef(tensor_A_torch.data_ptr(), tensor_A_torch.stride()[0])
+    arguments.B = rt.TensorRef(tensor_B_torch.data_ptr(), tensor_B_torch.stride()[0])
+    arguments.C = rt.TensorRef(tensor_C_torch.data_ptr(), tensor_C_torch.stride()[0])
+    arguments.D = rt.TensorRef(tensor_D_torch.data_ptr(), tensor_D_torch.stride()[0])
+
+    host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
+    device_workspace = None
+
+    # TODO(yf225): maybe we can save overhead by doing plan and initialize only once?
+    launch_config = gemm.plan(arguments)
+    # `gemm.initialize()` doesn't actually need the `stream` argument, so passing None
+    byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=None)
     err = gemm.run(host_workspace, device_workspace, launch_config, stream=cuda_stream_ptr)
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
+
+compile_cuda_module()
