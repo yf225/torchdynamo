@@ -25,7 +25,7 @@ from .virtualized import V
 
 log = logging.getLogger(__name__)
 
-stream = None
+stream_dict = {}
 
 
 class CheckEachNode(torch.fx.Interpreter):
@@ -172,7 +172,7 @@ def compile_fx_inner(
 
 
 def cudagraphify(model, inputs, static_input_idxs=()):
-    global cudagraph_stream
+    global stream_dict
 
     """
     Assumes inputs[static_input_idxs[i]] are always the same memory address
@@ -186,6 +186,7 @@ def cudagraphify(model, inputs, static_input_idxs=()):
     # warmup
     torch.cuda.synchronize()
     stream = torch.cuda.Stream()
+    stream_dict["stream"] = stream
     stream.wait_stream(torch.cuda.current_stream())
     with torch.cuda.stream(stream):
         model(*inputs)

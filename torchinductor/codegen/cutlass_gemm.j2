@@ -9,7 +9,7 @@
 # """)
 
 import torch
-from torchinductor.compile_fx import stream
+from torchinductor.compile_fx import stream_dict
 
 # System modules
 import numpy as np
@@ -76,7 +76,8 @@ def {{kernel_name}}(
     K,
 ):
     global gemm
-    global stream
+    global stream_dict
+    stream = stream_dict["stream"]
 
     # Formula: D = alpha * (A @ B) + beta * C
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
