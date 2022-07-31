@@ -324,16 +324,11 @@ class WrapperCodeGen(CodeGen):
             return
 
         def add_fake_input(name, shape, stride, device, dtype):
-            # output.writeline(
-            #     f"{name} = rand_strided("
-            #     f"{V.graph.sizevars.codegen_shape_tuple(shape)}, "
-            #     f"{V.graph.sizevars.codegen_shape_tuple(stride)}, "
-            #     f"device='{device.type}', dtype={dtype})"
-            # )
             output.writeline(
-                f"{name} = torch.arange("
-                f"{math.prod(shape)}, "
-                f"device='{device.type}', dtype={dtype}).view({V.graph.sizevars.codegen_shape_tuple(shape)})"
+                f"{name} = rand_strided("
+                f"{V.graph.sizevars.codegen_shape_tuple(shape)}, "
+                f"{V.graph.sizevars.codegen_shape_tuple(stride)}, "
+                f"device='{device.type}', dtype={dtype})"
             )
 
         output.writelines(["", "", 'if __name__ == "__main__":'])
@@ -358,9 +353,6 @@ class WrapperCodeGen(CodeGen):
                     name, shape, stride, value.get_device(), value.get_dtype()
                 )
 
-            output.writeline(
-                f"print(call({', '.join(V.graph.graph_inputs.keys())}))"
-            )
             output.writeline(
                 f"print_performance(lambda: call({', '.join(V.graph.graph_inputs.keys())}))"
             )
