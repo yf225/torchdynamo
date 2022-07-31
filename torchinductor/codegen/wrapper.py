@@ -47,7 +47,8 @@ def make_buffer_allocation(buffer):
     shape = tuple(buffer.get_size())
     stride = tuple(buffer.get_stride())
     return (
-        f"{buffer.get_name()} = empty_strided("
+        # f"{buffer.get_name()} = empty_strided("
+        f"{buffer.get_name()} = rand_strided("
         f"{V.graph.sizevars.codegen_shape_tuple(shape)}, "
         f"{V.graph.sizevars.codegen_shape_tuple(stride)}, "
         f"device='{device.type}', dtype={dtype})"
@@ -177,7 +178,7 @@ class WrapperCodeGen(CodeGen):
                 from ctypes import c_void_p, c_long
                 import torch
                 import random
-                from torch import empty_strided, as_strided
+                from torch import empty_strided, rand_strided, as_strided
                 from {codecache.__name__} import CppCodeCache, TritonCodeCache
 
                 aten = torch.ops.aten
