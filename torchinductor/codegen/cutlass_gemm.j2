@@ -24,13 +24,20 @@ username = os.environ.get('USER')
 
 gemm = None
 
-# TODO(yf225): add autotuning and kernel selection
 
-def compile_cuda_module():
+# TODO(yf225): add autotuning and kernel selection
+def compile_cuda_module(
+    tensor_A_torch,
+    tensor_B_torch,
+    tensor_D_torch,
+    M,
+    N,
+    K,
+):
     global gemm
 
     if gemm is not None:
-        return
+        return gemm
 
     cuda_ver = "11.4"
     cuda_arch = "80"  # assuming A100
@@ -59,8 +66,6 @@ def compile_cuda_module():
     module = rt.Module('module.cu', [gemm], compilation_options)
 
 
-# # TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
-# @cached
 def {{kernel_name}}(
     tensor_A_torch,
     tensor_B_torch,
@@ -69,8 +74,16 @@ def {{kernel_name}}(
     N,
     K,
 ):
-    global gemm
     global stream_dict
+
+    gemm = compile_cuda_module(
+        tensor_A_torch,
+        tensor_B_torch,
+        tensor_D_torch,
+        M,
+        N,
+        K,
+    )
 
     if "cutlass_stream" not in stream_dict:
         # If currently CUTLASS kernel is not required to use any pre-existing stream,
@@ -95,17 +108,12 @@ def {{kernel_name}}(
     device_workspace = None
 
     # TODO(yf225): maybe we can save overhead by doing plan and initialize only once?
-    start_time = time.time()
+    # but this overhead only affects non-cudagraph case though.
     launch_config = gemm.plan(arguments)
-    print("--- %s seconds ---" % (time.time() - start_time))
 
     # `gemm.initialize()` doesn't actually need the `stream` argument, so passing None
-    start_time = time.time()
     byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=None)
-    print("--- %s seconds ---" % (time.time() - start_time))
 
     err = gemm.run(host_workspace, device_workspace, launch_config, stream=cuda_stream_ptr)
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
-
-compile_cuda_module()
