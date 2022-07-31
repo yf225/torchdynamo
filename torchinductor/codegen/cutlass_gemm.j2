@@ -83,7 +83,7 @@ def {{kernel_name}}(
         # then create a new stream dedicated to CUTLASS which is also exposed publicly
         # for easier control.
         stream_dict["cutlass_stream"] = torch.cuda.Stream()
-    cuda_stream_ptr = stream_dict["cudagraph_stream"].cuda_stream
+    cuda_stream_ptr = stream_dict["cutlass_stream"].cuda_stream
 
     # Formula: D = alpha * (A @ B) + beta * C
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
