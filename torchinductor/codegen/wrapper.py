@@ -5,6 +5,7 @@ from itertools import count
 from typing import Any
 from typing import Dict
 from typing import List
+import math
 
 from .. import codecache
 from .. import config
@@ -323,11 +324,16 @@ class WrapperCodeGen(CodeGen):
             return
 
         def add_fake_input(name, shape, stride, device, dtype):
+            # output.writeline(
+            #     f"{name} = rand_strided("
+            #     f"{V.graph.sizevars.codegen_shape_tuple(shape)}, "
+            #     f"{V.graph.sizevars.codegen_shape_tuple(stride)}, "
+            #     f"device='{device.type}', dtype={dtype})"
+            # )
             output.writeline(
-                f"{name} = rand_strided("
-                f"{V.graph.sizevars.codegen_shape_tuple(shape)}, "
-                f"{V.graph.sizevars.codegen_shape_tuple(stride)}, "
-                f"device='{device.type}', dtype={dtype})"
+                f"{name} = torch.arange("
+                f"{math.prod(V.graph.sizevars.codegen_shape_tuple(shape))}, "
+                f"device='{device.type}', dtype={dtype}).view({V.graph.sizevars.codegen_shape_tuple(shape)})"
             )
 
         output.writelines(["", "", 'if __name__ == "__main__":'])
@@ -346,7 +352,6 @@ class WrapperCodeGen(CodeGen):
                 )
 
             for name, value in V.graph.graph_inputs.items():
-                print(f"name: {name}, value: {value}")
                 shape = [V.graph.sizevars.size_hint(x) for x in value.get_size()]
                 stride = [V.graph.sizevars.size_hint(x) for x in value.get_stride()]
                 add_fake_input(
