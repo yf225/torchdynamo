@@ -12,10 +12,11 @@ torchinductor.config.triton.cudagraphs = True
 torchinductor.config.debug = True
 
 def f(a, b, c, x):
-    o1 = torch.mm(a, b)
-    o2 = o1 + c
-    o3 = b * x
-    return (o1, o2, o3)
+    # TODO: GEMM and bias needs to be in one op! no way to read GEMM output alone in CUTLASS
+    # TODO: figure out how to extract alpha and beta
+    o1 = torch.mm(a, b) + c
+    o2 = b * x
+    return (o1, o2)
 
 tensor_A = torch.arange(3*4, device='cuda', requires_grad=True, dtype=torch.float).view(3, 4)
 tensor_B = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.float).view(4, 5)
