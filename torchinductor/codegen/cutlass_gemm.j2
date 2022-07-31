@@ -94,9 +94,15 @@ def {{kernel_name}}(
     device_workspace = None
 
     # TODO(yf225): maybe we can save overhead by doing plan and initialize only once?
+    start_time = time.time()
     launch_config = gemm.plan(arguments)
+    print("--- %s seconds ---" % (time.time() - start_time))
+
     # `gemm.initialize()` doesn't actually need the `stream` argument, so passing None
+    start_time = time.time()
     byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=None)
+    print("--- %s seconds ---" % (time.time() - start_time))
+
     err = gemm.run(host_workspace, device_workspace, launch_config, stream=cuda_stream_ptr)
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
