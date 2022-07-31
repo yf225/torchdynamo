@@ -20,7 +20,7 @@ tensor_B = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.floa
 inps = [tensor_A, tensor_B]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
-# stream = stream_dict["stream"]
+# stream = stream_dict["cutlass_stream"]
 # stream.synchronize()
 # torch.cuda.current_stream().wait_stream(stream)
 # torch.cuda.synchronize()

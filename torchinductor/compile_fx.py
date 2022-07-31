@@ -186,7 +186,8 @@ def cudagraphify(model, inputs, static_input_idxs=()):
     # warmup
     torch.cuda.synchronize()
     stream = torch.cuda.Stream()
-    stream_dict["stream"] = stream
+    # Save this stream for CUTLASS kernel usage
+    stream_dict["cutlass_stream"] = stream
     stream.wait_stream(torch.cuda.current_stream())
     with torch.cuda.stream(stream):
         model(*inputs)
