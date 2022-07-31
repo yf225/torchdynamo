@@ -20,6 +20,8 @@ tensor_B = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.floa
 inps = [tensor_A, tensor_B]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
+torch.cuda.synchronize()
+
 out = new_mod(*inps)[0]
 
 torch.cuda.synchronize()
