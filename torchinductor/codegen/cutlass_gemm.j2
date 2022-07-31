@@ -27,11 +27,6 @@ gemm_workspace_dict = {}
 
 # TODO(yf225): add kernel selection and caching
 def compile_cuda_module():
-    global gemm
-
-    if gemm is not None:
-        return
-
     cuda_ver = "11.4"
     cuda_arch = "80"  # assuming A100
 
