@@ -102,7 +102,7 @@ def {{kernel_name}}(
 
     arguments = rt.GemmArguments()
     arguments.problem_size = rt.GemmCoord(M, N, K)
-    arguments.alpa = 1.0  # TODO(yf225): pass in from outside
+    arguments.alpha = 1.0  # TODO(yf225): pass in from outside
     arguments.beta = 1.0  # TODO(yf225): pass in from outside
     arguments.A = rt.TensorRef(tensor_A_torch.data_ptr(), tensor_A_torch.stride()[0])
     arguments.B = rt.TensorRef(tensor_B_torch.data_ptr(), tensor_B_torch.stride()[0])
