@@ -71,11 +71,12 @@ def compile_cuda_module(
 def {{kernel_name}}(
     tensor_A_torch,
     tensor_B_torch,
-    tensor_D_torch,
     M,
     N,
     K,
+    gemm_out,
     tensor_C_torch,
+    gemm_bias_out,
 ):
     global stream_dict
 
