@@ -2098,7 +2098,6 @@ class MatrixMultiply(ExternKernelOut):
             [
                 ("a", f"{in_args[0]}"),
                 ("b", f"{in_args[1]}"),
-                ("c", f"{self.get_name()}"),
                 ("d", f"{self.get_name()}"),  # TODO(yf225): for input D, is it ok to reuse same tensor as input C?
             ]
         )
