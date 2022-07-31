@@ -98,7 +98,7 @@ def {{kernel_name}}(
     # Formula: D = alpha * (A @ B) + beta * C
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation,
     # it will not be used. We need to debug this.
-    tensor_C_torch = torch.empty(M, N, device='cuda', dtype=tensor_A_torch.dtype)
+    tensor_C_torch = torch.arange(M*N, device='cuda', dtype=tensor_A_torch.dtype).view(M, N)
 
     arguments = rt.GemmArguments()
     arguments.problem_size = rt.GemmCoord(M, N, K)
