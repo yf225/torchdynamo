@@ -84,6 +84,7 @@ def {{kernel_name}}(
         N,
         K,
     )
+    assert gemm is not None
 
     if "cutlass_stream" not in stream_dict:
         # If currently CUTLASS kernel is not required to use any pre-existing stream,
