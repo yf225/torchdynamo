@@ -21,6 +21,9 @@ module load cuda/11.4 nccl/2.12.7-cuda.11.4 nccl_efa/1.2.0-nccl.2.12.7-cuda.11.4
 source /data/shared/bin/cluster_env_new.sh
 export CUDA_HOME=/usr/local/cuda-11.4
 export NCCL_INCLUDE_DIR=/usr/local/cuda-11.4/include
+export CUDA_INSTALL_PATH=/usr/local/cuda-11.4
+export CUDACXX=${CUDA_INSTALL_PATH}/bin/nvcc
+export PYTHONPATH=/fsx/users/${USER}/cutlass/tools/library/scripts:$PYTHONPATH
 
 # Step 1: Set up conda environment
 # pip3 install --pre torch torchtext torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cu113

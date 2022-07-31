@@ -21,9 +21,9 @@ inps = [tensor_A, tensor_B, tensor_X]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
 
-out = new_mod(*inps)[0]
+out = new_mod(*inps)
 
 print(out)
 
-pt_output = tensor_A @ tensor_B + tensor_B * tensor_X
-assert torch.allclose(out, pt_output)
+assert torch.allclose(out[0], tensor_A @ tensor_B)
+assert torch.allclose(out[1], tensor_B * tensor_X)
