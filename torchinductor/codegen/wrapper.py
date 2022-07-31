@@ -346,6 +346,7 @@ class WrapperCodeGen(CodeGen):
                 )
 
             for name, value in V.graph.graph_inputs.items():
+                print(f"name: {name}, value: {value}")
                 shape = [V.graph.sizevars.size_hint(x) for x in value.get_size()]
                 stride = [V.graph.sizevars.size_hint(x) for x in value.get_stride()]
                 add_fake_input(
