@@ -359,6 +359,9 @@ class WrapperCodeGen(CodeGen):
                 )
 
             output.writeline(
+                f"print(call({', '.join(V.graph.graph_inputs.keys())}))"
+            )
+            output.writeline(
                 f"print_performance(lambda: call({', '.join(V.graph.graph_inputs.keys())}))"
             )
 
