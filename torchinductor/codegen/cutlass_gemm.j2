@@ -79,7 +79,7 @@ def {{kernel_name}}(
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
     tensor_C_torch = torch.empty(M, N, device='cuda', dtype=tensor_A_torch.dtype)
 
-    if "op" not in gemm_workspace_dict or not torchinductor.triton.cudagraphs:
+    if "op" not in gemm_workspace_dict or not torchinductor.config.triton.cudagraphs:
         gemm = compile_cuda_module()
 
         arguments = rt.GemmArguments()
