@@ -14,10 +14,9 @@ def f(a, b):
     c = torch.mm(a, b)
     return (c,)
 
-inps = [
-    torch.empty(3, 4, device='cuda', requires_grad=True),  # a
-    torch.empty(4, 5, device='cuda', requires_grad=True),  # b
-]
+tensor_A = torch.randn(3, 4, device='cuda', requires_grad=True)
+tensor_B = torch.randn(4, 5, device='cuda', requires_grad=True)
+inps = [tensor_A, tensor_B]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
 print(new_mod(*inps))
