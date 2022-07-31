@@ -1,13 +1,3 @@
-# import jinja2
-# generated_kernel = jinja2.Template("""
-# # ... The generated GEMM epilogue fusion kernel ...
-# # ... 
-# {% if pointwise_code %}
-# {{ pointwise_code | indent(4, true) }}
-# {% endif %}
-# # ...
-# """)
-
 import torch
 from torchinductor.compile_fx import stream_dict
 
@@ -37,6 +27,9 @@ gemm = None
 
 def compile_cuda_module():
     global gemm
+
+    if gemm is not None:
+        return
 
     cuda_ver = "11.4"
     cuda_arch = "80"  # assuming A100
@@ -105,6 +98,4 @@ def {{kernel_name}}(
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
 
-
-# TODO(yf225): emit this in global `if __name__ == "__main__":` block?
 compile_cuda_module()
