@@ -33,6 +33,8 @@ username = os.environ.get('USER')
 
 gemm = None
 
+# TODO(yf225): add autotuning and kernel selection
+
 def compile_cuda_module():
     global gemm
 
@@ -64,7 +66,7 @@ def compile_cuda_module():
 
 
 # # TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
-# @hpcfuser.cached
+# @cached
 def {{kernel_name}}(
     tensor_A_torch,
     tensor_B_torch,
@@ -76,14 +78,6 @@ def {{kernel_name}}(
     global gemm
     global stream
 
-    # # TODO(yf225): this requires just-in-time compilation, see if can reuse CUTLASS-Python infra.
-    # return hpcfuser.autotune(configs=[...])(generated_kernel)(
-    #     {% for i in template_inout_argdefs %}
-    #     {{i}},
-    #     {% endfor %}
-    # )
-
-    # Setup a workspace
     # Formula: D = alpha * (A @ B) + beta * C
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
     tensor_C_torch = torch.empty(M, N, device='cuda', dtype=tensor_A_torch.dtype)
@@ -99,11 +93,8 @@ def {{kernel_name}}(
     device_workspace = None
 
     launch_config = gemm.plan(arguments)
-
     byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=stream)
-
     err = gemm.run(host_workspace, device_workspace, launch_config, stream=stream)
-
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
 
