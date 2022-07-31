@@ -77,7 +77,7 @@ def {{kernel_name}}(
 ):
     global gemm
     global stream_dict
-    cuda_stream_ptr = ctypes.c_void_p(stream_dict["stream"].cuda_stream)
+    cuda_stream_ptr = stream_dict["stream"].cuda_stream
     print(f"cuda_stream_ptr: {cuda_stream_ptr}")
 
     # Formula: D = alpha * (A @ B) + beta * C
