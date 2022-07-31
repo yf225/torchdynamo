@@ -8,26 +8,27 @@ import torch.fx as fx
 
 # torchinductor.config.triton.use_mm = True
 torchinductor.config.triton.use_cutlass = True
+torchinductor.config.triton.cudagraphs = True
 torchinductor.config.debug = True
 
-def f(a, b, bias, x):
-    c = torch.mm(a, b)
-    d = c + bias
-    y = d * x
-    return (c, d, y)
+def f(a, b, c, x):
+    o1 = torch.mm(a, b) + c
+    o2 = b * x
+    return (o1, o2)
 
-inps = [
-    torch.empty(3, 4, device='cuda', requires_grad=True),  # a
-    torch.empty(4, 5, device='cuda', requires_grad=True),  # b
-    torch.empty(5, device='cuda', requires_grad=True),  # bias
-    torch.empty(3, 5, device='cuda', requires_grad=True),  # x
-]
+tensor_A = torch.arange(3*4, device='cuda', requires_grad=True, dtype=torch.float).view(3, 4)
+tensor_B = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.float).view(4, 5)
+tensor_C = torch.arange(3*5, device='cuda', requires_grad=True, dtype=torch.float).view(3, 5)
+tensor_X = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.float).view(4, 5)
+inps = [tensor_A, tensor_B, tensor_C, tensor_X]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
-new_mod(*inps)
 
-"""
-Output:
+out = new_mod(*inps)
 
-???
-"""
+print(out)
+
+ref_out = f(*inps)
+
+for t1, t2 in zip(out, ref_out):
+    assert torch.allclose(t1, t2)

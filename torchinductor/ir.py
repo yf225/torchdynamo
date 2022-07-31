@@ -2098,7 +2098,7 @@ class MatrixMultiply(ExternKernelOut):
             [
                 ("a", f"{in_args[0]}"),
                 ("b", f"{in_args[1]}"),
-                ("d", f"{self.get_name()}"),  # TODO(yf225): for input D, is it ok to reuse same tensor as input C?
+                ("d", f"{self.get_name()}"),
             ]
         )
         args_dict = OrderedDict(

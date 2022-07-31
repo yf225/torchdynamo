@@ -27,3 +27,4 @@ print(out)
 
 assert torch.allclose(out[0], tensor_A @ tensor_B)
 assert torch.allclose(out[1], tensor_B * tensor_X)
+
