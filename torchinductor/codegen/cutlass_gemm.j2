@@ -97,7 +97,6 @@ def {{kernel_name}}(
     err = gemm.run(host_workspace, device_workspace, launch_config, stream=stream)
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
-    torch.cuda.synchronize()
 
 
 # TODO(yf225): emit this in global `if __name__ == "__main__":` block?

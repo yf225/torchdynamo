@@ -19,7 +19,10 @@ tensor_B = torch.randn(4, 5, device='cuda', requires_grad=True)
 inps = [tensor_A, tensor_B]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
-print(new_mod(*inps))
+out = new_mod(*inps)
+
+torch.cuda.synchronize()
+print(out)
 
 """
 Output:
