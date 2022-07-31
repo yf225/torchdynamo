@@ -78,6 +78,7 @@ def {{kernel_name}}(
     global gemm
     global stream_dict
     stream = stream_dict["stream"]
+    print(f"stream: {stream}")
 
     # Formula: D = alpha * (A @ B) + beta * C
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.

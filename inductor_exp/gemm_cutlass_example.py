@@ -30,7 +30,7 @@ out = new_mod(*inps)[0]
 print(out)
 
 pt_output = tensor_A @ tensor_B
-assert torch.allclose(out, pt_output)
+assert torch.allclose(out, pt_output)  # NOT WORKING
 
 """
 Output:
