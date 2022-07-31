@@ -12,9 +12,10 @@ torchinductor.config.triton.cudagraphs = True
 torchinductor.config.debug = True
 
 def f(a, b, c, x):
-    o1 = torch.mm(a, b) + c
-    o2 = b * x
-    return (o1, o2)
+    o1 = torch.mm(a, b)
+    o2 = o1 + c
+    o3 = b * x
+    return (o1, o2, o3)
 
 tensor_A = torch.arange(3*4, device='cuda', requires_grad=True, dtype=torch.float).view(3, 4)
 tensor_B = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.float).view(4, 5)
