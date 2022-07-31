@@ -14,8 +14,8 @@ def f(a, b):
     c = torch.mm(a, b)
     return (c,)
 
-tensor_A = torch.randn(3, 4, device='cuda', requires_grad=True)
-tensor_B = torch.randn(4, 5, device='cuda', requires_grad=True)
+tensor_A = torch.arange(3*4, device='cuda', requires_grad=True, dtype=torch.float).view(3, 4)
+tensor_B = torch.arange(4*5, device='cuda', requires_grad=True, dtype=torch.float).view(4, 5)
 inps = [tensor_A, tensor_B]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
@@ -23,6 +23,9 @@ out = new_mod(*inps)
 
 torch.cuda.synchronize()
 print(out)
+
+pt_output = tensor_A @ tensor_B
+assert torch.allclose(out, pt_output)
 
 """
 Output:

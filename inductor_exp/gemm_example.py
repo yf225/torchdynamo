@@ -24,6 +24,9 @@ out = new_mod(*inps)
 torch.cuda.synchronize()
 print(out)
 
+pt_output = tensor_A @ tensor_B
+assert torch.allclose(out, pt_output)
+
 """
 Output:
 
