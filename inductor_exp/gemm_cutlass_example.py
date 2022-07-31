@@ -24,7 +24,6 @@ torch.cuda.synchronize()
 
 out = new_mod(*inps)[0]
 
-torch.cuda.synchronize()
 print(out)
 
 pt_output = tensor_A @ tensor_B
