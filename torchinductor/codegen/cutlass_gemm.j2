@@ -30,31 +30,37 @@ import rt
 
 username = os.environ.get('USER')
 
-cuda_ver = "11.4"
-cuda_arch = "80"  # assuming A100
+gemm = None
 
-# Construct an SGEMM
-manifest = cutlass_manifest.Manifest()
-generator.GenerateSM50_Simt(manifest, cuda_ver)
+def compile_cuda_module():
+    global gemm
 
-# Look up the GEMM operation
-operation = manifest.operations_by_name['cutlass_simt_sgemm_128x128_8x2_nn_align1']
+    cuda_ver = "11.4"
+    cuda_arch = "80"  # assuming A100
 
-# Construct a runtime GEMM operation
-gemm = rt.Gemm(operation)
+    # Construct an SGEMM
+    manifest = cutlass_manifest.Manifest()
+    generator.GenerateSM50_Simt(manifest, cuda_ver)
 
-# Construct a module
-architectures = [80,]
-include_paths = [
-  f'/fsx/users/{username}/cutlass/include',
-  f'/fsx/users/{username}/cutlass/tools/util/include',
-  f'/usr/local/cuda-{cuda_ver}/include',
-  f'/usr/local/cuda-{cuda_ver}/targets/x86_64-linux/include',
-]
+    # Look up the GEMM operation
+    operation = manifest.operations_by_name['cutlass_simt_sgemm_128x128_8x2_nn_align1']
 
-compilation_options = rt.CompilationOptions(architectures, include_paths)
-# NOTE: compilation needs to happen outside of CUDA stream capture (e.g. when capturing for CUDA graph)
-module = rt.Module('module.cu', [gemm], compilation_options)
+    # Construct a runtime GEMM operation
+    gemm = rt.Gemm(operation)
+
+    # Construct a module
+    architectures = [80,]
+    include_paths = [
+      f'/fsx/users/{username}/cutlass/include',
+      f'/fsx/users/{username}/cutlass/tools/util/include',
+      f'/usr/local/cuda-{cuda_ver}/include',
+      f'/usr/local/cuda-{cuda_ver}/targets/x86_64-linux/include',
+    ]
+
+    compilation_options = rt.CompilationOptions(architectures, include_paths)
+    # NOTE: compilation needs to happen outside of CUDA stream capture (e.g. when capturing for CUDA graph)
+    module = rt.Module('module.cu', [gemm], compilation_options)
+
 
 # # TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
 # @hpcfuser.cached
@@ -66,6 +72,8 @@ def {{kernel_name}}(
     N,
     K,
 ):
+    global gemm
+
     # # TODO(yf225): this requires just-in-time compilation, see if can reuse CUTLASS-Python infra.
     # return hpcfuser.autotune(configs=[...])(generated_kernel)(
     #     {% for i in template_inout_argdefs %}
@@ -96,3 +104,7 @@ def {{kernel_name}}(
 
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
+
+
+if __name__ == "__main__":
+    compile_cuda_module()
