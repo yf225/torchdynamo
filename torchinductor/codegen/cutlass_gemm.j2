@@ -92,6 +92,7 @@ def {{kernel_name}}(
     host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
     device_workspace = None
 
+    # TODO(yf225): can we initialize only once and re-run it many times, to save overhead?
     launch_config = gemm.plan(arguments)
     byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=cuda_stream_ptr)
     err = gemm.run(host_workspace, device_workspace, launch_config, stream=cuda_stream_ptr)
