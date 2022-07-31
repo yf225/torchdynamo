@@ -178,7 +178,8 @@ class WrapperCodeGen(CodeGen):
                 from ctypes import c_void_p, c_long
                 import torch
                 import random
-                from torch import empty_strided, rand_strided, as_strided
+                from torch import empty_strided, as_strided
+                from torchdynamo.testing import rand_strided
                 from {codecache.__name__} import CppCodeCache, TritonCodeCache
 
                 aten = torch.ops.aten
