@@ -9,6 +9,7 @@
 # """)
 
 import torch
+from torchinductor.compile_fx import stream
 
 # System modules
 import numpy as np
@@ -73,6 +74,7 @@ def {{kernel_name}}(
     K,
 ):
     global gemm
+    global stream
 
     # # TODO(yf225): this requires just-in-time compilation, see if can reuse CUTLASS-Python infra.
     # return hpcfuser.autotune(configs=[...])(generated_kernel)(
@@ -98,12 +100,13 @@ def {{kernel_name}}(
 
     launch_config = gemm.plan(arguments)
 
-    byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments)
+    byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=stream)
 
-    err = gemm.run(host_workspace, device_workspace, launch_config)
+    err = gemm.run(host_workspace, device_workspace, launch_config, stream=stream)
 
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
 
 
+# TODO(yf225): emit this in global `if __name__ == "__main__":` block?
 compile_cuda_module()
