@@ -77,8 +77,7 @@ def {{kernel_name}}(
 ):
     global gemm
     global stream_dict
-    stream = stream_dict["stream"]
-    print(f"stream: {stream}")
+    cuda_stream_ptr = ctypes.c_void_p(stream_dict["stream"].cuda_stream)
 
     # Formula: D = alpha * (A @ B) + beta * C
     # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
@@ -95,8 +94,8 @@ def {{kernel_name}}(
     device_workspace = None
 
     launch_config = gemm.plan(arguments)
-    byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=stream)
-    err = gemm.run(host_workspace, device_workspace, launch_config, stream=stream)
+    byte_count = gemm.initialize(host_workspace, device_workspace, launch_config, arguments, stream=cuda_stream_ptr)
+    err = gemm.run(host_workspace, device_workspace, launch_config, stream=cuda_stream_ptr)
     if err != cuda.CUresult.CUDA_SUCCESS:
       raise RuntimeError('CUDA Error %s' % str(err))
 
