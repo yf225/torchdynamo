@@ -65,6 +65,8 @@ def compile_cuda_module(
     # NOTE: compilation needs to happen outside of CUDA stream capture (e.g. when capturing for CUDA graph)
     module = rt.Module('module.cu', [precompiled_gemm_obj], compilation_options)
 
+    return precompiled_gemm_obj
+
 
 def {{kernel_name}}(
     tensor_A_torch,
