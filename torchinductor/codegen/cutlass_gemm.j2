@@ -27,14 +27,12 @@ prebuilt_gemm = None
 
 # TODO(yf225): add autotuning and kernel selection
 def compile_cuda_module(
-    tensor_A_torch,
-    tensor_B_torch,
+    {% for i in template_inout_argdefs %}
+    {{i}},
+    {% endfor %}
     M,
     N,
     K,
-    gemm_out,
-    tensor_C_torch,
-    gemm_bias_out,
 ):
     global prebuilt_gemm
 
@@ -71,25 +69,26 @@ def compile_cuda_module(
 
 
 def {{kernel_name}}(
-    tensor_A_torch,
-    tensor_B_torch,
+    {% for i in template_inout_argdefs %}
+    {{i}},
+    {% endfor %}
     M,
     N,
     K,
-    gemm_out,
-    tensor_C_torch,
-    gemm_bias_out,
+    # fusable kernels args
+    {% for i in extra_argdefs %}
+    {{i}}=None,
+    {% endfor %}
 ):
     global stream_dict
 
     gemm = compile_cuda_module(
-        tensor_A_torch,
-        tensor_B_torch,
+        tensor_A,
+        tensor_B,
         M,
         N,
         K,
-        gemm_out,
-        tensor_C_torch,
+        tensor_C,
         gemm_bias_out,
     )
     assert gemm is not None
@@ -104,16 +103,19 @@ def {{kernel_name}}(
     # Formula: D = alpha * (A @ B) + beta * C
     # # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation,
     # # it will not be used. We need to debug this.
-    # tensor_C_torch = torch.arange(M*N, device='cuda', dtype=tensor_A_torch.dtype).view(M, N)
+    # tensor_C = torch.arange(M*N, device='cuda', dtype=tensor_A.dtype).view(M, N)
 
     arguments = rt.GemmArguments()
     arguments.problem_size = rt.GemmCoord(M, N, K)
     arguments.output_op.alpha = 1.0  # TODO(yf225): pass in from outside
-    arguments.output_op.beta = 1.0  # TODO(yf225): pass in from outside
-    arguments.A = rt.TensorRef(tensor_A_torch.data_ptr(), tensor_A_torch.stride()[0])
-    arguments.B = rt.TensorRef(tensor_B_torch.data_ptr(), tensor_B_torch.stride()[0])
-    arguments.C = rt.TensorRef(tensor_C_torch.data_ptr(), tensor_C_torch.stride()[0])
-    arguments.D = rt.TensorRef(gemm_out.data_ptr(), gemm_out.stride()[0])
+    if bias is not None:
+        arguments.output_op.beta = 1.0  # TODO(yf225): pass in from outside
+    else:
+        arguments.output_op.beta = 0.0
+    arguments.A = rt.TensorRef(tensor_A.data_ptr(), tensor_A.stride()[0])
+    arguments.B = rt.TensorRef(tensor_B.data_ptr(), tensor_B.stride()[0])
+    arguments.C = rt.TensorRef(tensor_C.data_ptr(), tensor_C.stride()[0])
+    arguments.D = rt.TensorRef(gemm_bias_out.data_ptr(), gemm_bias_out.stride()[0])
 
     host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
     device_workspace = None

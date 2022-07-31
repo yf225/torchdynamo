@@ -2096,9 +2096,9 @@ class MatrixMultiply(ExternKernelOut):
 
         inout_dict = OrderedDict(
             [
-                ("a", f"{in_args[0]}"),
-                ("b", f"{in_args[1]}"),
-                # ("d", f"{self.get_name()}"),
+                ("tensor_A", f"{in_args[0]}"),
+                ("tensor_B", f"{in_args[1]}"),
+                ("tensor_gemm_out", f"{self.get_name()}"),
             ]
         )
         args_dict = OrderedDict(

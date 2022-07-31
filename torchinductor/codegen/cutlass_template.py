@@ -70,6 +70,8 @@ class CutlassTemplateKernel(TritonKernel):
         if could_remove_kernel_buf:
             if isinstance(self.node, ir.Convolution):
                 self.inout_dict.pop("y")
+            if isinstance(self.node, ir.MatrixMultiply):
+                self.inout_dict.pop("tensor_gemm_out")
         self.template_inout_argdefs = list(self.inout_dict.keys())
 
         if kernel_buf_replace_name is not None:
