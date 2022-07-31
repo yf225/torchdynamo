@@ -61,18 +61,18 @@ def {{kernel_name}}(
     # Construct a runtime GEMM operation
     gemm = rt.Gemm(operation)
 
-    # Initialize context
-    err, = cuda.cuInit(0)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # # Initialize context
+    # err, = cuda.cuInit(0)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    err, device = cuda.cuDeviceGet(0)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, device = cuda.cuDeviceGet(0)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
-    err, context = cuda.cuCtxCreate(0, device)
-    if err != cuda.CUresult.CUDA_SUCCESS:
-      raise RuntimeError("CUDA Error %s" % str(err))
+    # err, context = cuda.cuCtxCreate(0, device)
+    # if err != cuda.CUresult.CUDA_SUCCESS:
+    #   raise RuntimeError("CUDA Error %s" % str(err))
 
     # Construct a module
     architectures = [int(cuda_arch),]
@@ -88,7 +88,7 @@ def {{kernel_name}}(
 
     # Setup a workspace
     # Formula: D = alpha * (A @ B) + beta * C
-    # TODO(yf225): for some weird reason this bias term is not being used in following GEMM operation, need to debug this.
+    # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation, it will not be used. We need to debug this.
     tensor_C_torch = torch.empty(M, N, device='cuda', dtype=tensor_A_torch.dtype)
 
     arguments = rt.GemmArguments()
