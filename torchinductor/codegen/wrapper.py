@@ -330,6 +330,7 @@ class WrapperCodeGen(CodeGen):
             #     f"{V.graph.sizevars.codegen_shape_tuple(stride)}, "
             #     f"device='{device.type}', dtype={dtype})"
             # )
+            print("V.graph.sizevars.codegen_shape_tuple(shape)): {V.graph.sizevars.codegen_shape_tuple(shape))}")
             output.writeline(
                 f"{name} = torch.arange("
                 f"{math.prod(V.graph.sizevars.codegen_shape_tuple(shape))}, "
