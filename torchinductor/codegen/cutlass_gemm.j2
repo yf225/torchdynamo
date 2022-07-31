@@ -30,6 +30,31 @@ import rt
 
 username = os.environ.get('USER')
 
+cuda_ver = "11.4"
+cuda_arch = "80"  # assuming A100
+
+# Construct an SGEMM
+manifest = cutlass_manifest.Manifest()
+generator.GenerateSM50_Simt(manifest, cuda_ver)
+
+# Look up the GEMM operation
+operation = manifest.operations_by_name['cutlass_simt_sgemm_128x128_8x2_nn_align1']
+
+# Construct a runtime GEMM operation
+gemm = rt.Gemm(operation)
+
+# Construct a module
+architectures = [80,]
+include_paths = [
+  f'/fsx/users/{username}/cutlass/include',
+  f'/fsx/users/{username}/cutlass/tools/util/include',
+  f'/usr/local/cuda-{cuda_ver}/include',
+  f'/usr/local/cuda-{cuda_ver}/targets/x86_64-linux/include',
+]
+
+compilation_options = rt.CompilationOptions(architectures, include_paths)
+# NOTE: compilation needs to happen outside of CUDA stream capture (e.g. when capturing for CUDA graph)
+module = rt.Module('module.cu', [gemm], compilation_options)
 
 # # TODO(yf225): Can we use TorchDynamo / TorchInductor caching mechanism to reuse kernel for subsequent runs?
 # @hpcfuser.cached
@@ -47,44 +72,6 @@ def {{kernel_name}}(
     #     {{i}},
     #     {% endfor %}
     # )
-
-    cuda_ver = "11.4"
-    cuda_arch = "80"  # assuming A100
-
-    # Construct an SGEMM
-    manifest = cutlass_manifest.Manifest()
-    generator.GenerateSM50_Simt(manifest, cuda_ver)
-
-    # Look up the GEMM operation
-    operation = manifest.operations_by_name['cutlass_simt_sgemm_128x128_8x2_nn_align1']
-
-    # Construct a runtime GEMM operation
-    gemm = rt.Gemm(operation)
-
-    # # Initialize context
-    # err, = cuda.cuInit(0)
-    # if err != cuda.CUresult.CUDA_SUCCESS:
-    #   raise RuntimeError("CUDA Error %s" % str(err))
-
-    # err, device = cuda.cuDeviceGet(0)
-    # if err != cuda.CUresult.CUDA_SUCCESS:
-    #   raise RuntimeError("CUDA Error %s" % str(err))
-
-    # err, context = cuda.cuCtxCreate(0, device)
-    # if err != cuda.CUresult.CUDA_SUCCESS:
-    #   raise RuntimeError("CUDA Error %s" % str(err))
-
-    # Construct a module
-    architectures = [int(cuda_arch),]
-    include_paths = [
-      f'/fsx/users/{username}/cutlass/include',
-      f'/fsx/users/{username}/cutlass/tools/util/include',
-      f'/usr/local/cuda-{cuda_ver}/include',
-      f'/usr/local/cuda-{cuda_ver}/targets/x86_64-linux/include',
-    ]
-
-    compilation_options = rt.CompilationOptions(architectures, include_paths)
-    module = rt.Module('module.cu', [gemm], compilation_options)
 
     # Setup a workspace
     # Formula: D = alpha * (A @ B) + beta * C
