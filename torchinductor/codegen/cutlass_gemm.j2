@@ -22,7 +22,7 @@ import rt
 
 username = os.environ.get('USER')
 
-gemm = None
+precompiled_gemm_obj = None
 
 
 # TODO(yf225): add autotuning and kernel selection
@@ -34,10 +34,10 @@ def compile_cuda_module(
     N,
     K,
 ):
-    global gemm
+    global precompiled_gemm_obj
 
-    if gemm is not None:
-        return gemm
+    if precompiled_gemm_obj is not None:
+        return precompiled_gemm_obj
 
     cuda_ver = "11.4"
     cuda_arch = "80"  # assuming A100
@@ -50,7 +50,7 @@ def compile_cuda_module(
     operation = manifest.operations_by_name['cutlass_simt_sgemm_128x128_8x2_nn_align1']
 
     # Construct a runtime GEMM operation
-    gemm = rt.Gemm(operation)
+    precompiled_gemm_obj = rt.Gemm(operation)
 
     # Construct a module
     architectures = [80,]
@@ -63,7 +63,7 @@ def compile_cuda_module(
 
     compilation_options = rt.CompilationOptions(architectures, include_paths)
     # NOTE: compilation needs to happen outside of CUDA stream capture (e.g. when capturing for CUDA graph)
-    module = rt.Module('module.cu', [gemm], compilation_options)
+    module = rt.Module('module.cu', [precompiled_gemm_obj], compilation_options)
 
 
 def {{kernel_name}}(
