@@ -20,7 +20,7 @@ inps = [
 ]
 
 new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
-new_mod(*inps)
+print(new_mod(*inps))
 
 """
 Output:
