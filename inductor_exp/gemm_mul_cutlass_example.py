@@ -25,5 +25,5 @@ out = new_mod(*inps)[0]
 
 print(out)
 
-pt_output = tensor_A @ tensor_B * tensor_X
+pt_output = tensor_A @ tensor_B + tensor_B * tensor_X
 assert torch.allclose(out, pt_output)
