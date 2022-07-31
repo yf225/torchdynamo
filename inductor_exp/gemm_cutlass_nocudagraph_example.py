@@ -1,10 +1,8 @@
-import torchinductor
-import torchinductor.config
-from torch.fx.experimental.proxy_tensor import make_fx
-
-from torchinductor.compile_fx import compile_fx_inner
 import torch
-import torch.fx as fx
+import torchinductor
+from torch.fx.experimental.proxy_tensor import make_fx
+from torchinductor.compile_fx import compile_fx_inner
+
 
 # torchinductor.config.triton.use_mm = True
 torchinductor.config.triton.use_cutlass = True
