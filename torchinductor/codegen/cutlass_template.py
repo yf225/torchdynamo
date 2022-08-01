@@ -13,7 +13,6 @@ from .triton import TritonKernel
 
 template_dict = {ir.MatrixMultiply: "cutlass_gemm"}
 
-# TODO(yf225): rework this file to support CUTLASS
 
 class CutlassTemplateKernel(TritonKernel):
     def __init__(self, node: ir.ExternKernel, *groups):
