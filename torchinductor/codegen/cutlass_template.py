@@ -83,7 +83,6 @@ class CutlassTemplateKernel(TritonKernel):
         self.pointwise_code.splice(self.assign_block_numel())
         # TODO(yf225): use info from `self` kernel to populate the fused cutlass kernel template
         # self.pointwise_code.splice(self.body)
-        self.pointwise_code.splice("#some pointwise code here")
         render_dict = {}
         render_dict["kernel_name"] = name
         render_dict["template_inout_argdefs"] = self.template_inout_argdefs
