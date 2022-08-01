@@ -33,5 +33,7 @@ ref_out = f(*inps)
 
 print(f"ref_out: {ref_out}")
 
+print(f"torch.mm(tensor_A, tensor_B): {torch.mm(tensor_A, tensor_B)}")
+
 for t1, t2 in zip(out, ref_out):
     assert torch.allclose(t1, t2)
