@@ -27,9 +27,11 @@ new_mod = compile_fx_inner(make_fx(f)(*inps), inps)
 
 out = new_mod(*inps)
 
-print(out)
+print(f"out: {out}")
 
 ref_out = f(*inps)
+
+print(f"ref_out: {ref_out}")
 
 for t1, t2 in zip(out, ref_out):
     assert torch.allclose(t1, t2)
