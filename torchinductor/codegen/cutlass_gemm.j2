@@ -86,7 +86,7 @@ def {{kernel_name}}(
 
     tensor_A = {{template_inout_argdefs[0]}}
     tensor_B = {{template_inout_argdefs[1]}}
-    {% if len(extra_argdefs) > 0 %}
+    {% if extra_argdefs|length > 0 %}
     tensor_C = {{ extra_argdefs[0] }}
     {% else %}
     tensor_C = None
