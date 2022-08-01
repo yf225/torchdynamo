@@ -121,8 +121,8 @@ def {{kernel_name}}(
         arguments.output_op.beta = 1.0  # TODO(yf225): pass in from outside
     else:
         # TODO(yf225): better way to handle "no bias" case? (can we just turn of bias add in GEMM kernel?)
-        tensor_C = torch.empty(M, N, device="cuda", dtype=torch.float)
-        arguments.C = rt.TensorRef(tensor_C.data_ptr(), tensor_C.stride()[0])
+        # tensor_C = torch.empty(M, N, device="cuda", dtype=torch.float)
+        arguments.C = rt.TensorRef()
         arguments.output_op.beta = 0.0
 
     host_workspace = bytearray(gemm.get_host_workspace_size(arguments))
