@@ -89,9 +89,14 @@ class CutlassTemplateKernel(TritonKernel):
         render_dict["template_inout_argdefs"] = self.template_inout_argdefs
         render_dict["extra_argdefs"] = self.extra_argdefs
         render_dict["pointwise_code"] = self.pointwise_code.getvalue() if fuse else None
-        render_dict["out_def"] = (
-            "y" if kernel_buf_replace_name is None else kernel_buf_replace_def
-        )
+        if kernel_buf_replace_name is None:
+            if isinstance(self.node, ir.Convolution):
+                out_def = "y"
+            elif isinstance(self.node, ir.MatrixMultiply):
+                out_def = "tensor_gemm_out"
+        else:
+            out_def = kernel_buf_replace_def
+        render_dict["out_def"] = out_def
         self.body = self.template.render(render_dict) + "\n"
 
     def codegen_kernel(

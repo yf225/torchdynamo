@@ -77,7 +77,7 @@ def {{kernel_name}}(
     K,
     # fusable kernels args
     {% for i in extra_argdefs %}
-    {{i}}=None,
+    {{i}},
     {% endfor %}
 ):
     global stream_dict
