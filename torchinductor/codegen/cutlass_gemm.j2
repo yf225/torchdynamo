@@ -50,7 +50,7 @@ def compile_cuda_module(
     operation = manifest.operations_by_name['cutlass_simt_sgemm_128x128_8x2_nn_align1']
 
     # Construct a runtime GEMM operation
-    prebuilt_gemm = rt.Gemm(operation)
+    prebuilt_gemm = rt.Gemm(operation)  # TODO(yf225): can pass different functor: `output_op = LinearCombinationXYZFunctor()`
 
     # Construct a module
     architectures = [80,]
@@ -116,6 +116,7 @@ def {{kernel_name}}(
     arguments.A = rt.TensorRef(tensor_A.data_ptr(), tensor_A.stride()[0])
     arguments.B = rt.TensorRef(tensor_B.data_ptr(), tensor_B.stride()[0])
     arguments.D = rt.TensorRef(gemm_bias_out.data_ptr(), gemm_bias_out.stride()[0])
+    # TODO(yf225): can pass custom functor arguments: `arguments.output_op = LinearCombinationXYZFunctorArguments(...)`
     if tensor_C is not None:
         arguments.C = rt.TensorRef(tensor_C.data_ptr(), tensor_C.stride()[0])
         arguments.output_op.beta = 1.0  # TODO(yf225): pass in from outside

@@ -11,6 +11,30 @@ torchinductor.config.triton.use_cutlass = True
 torchinductor.config.triton.cudagraphs = True
 torchinductor.config.debug = True
 
+# TODO: this doesn't work now, the output is slightly wrong
+"""
+out: (tensor([[ 70.,  77.,  84.,  91.,  98.],
+        [191., 214., 237., 260., 278.],
+        [312., 351., 390., 424., 462.]], device='cuda:0'), tensor([[  0.,   1.,   4.,   9.,  16.],
+        [ 25.,  36.,  49.,  64.,  81.],
+        [100., 121., 144., 169., 196.],
+        [225., 256., 289., 324., 361.]], device='cuda:0'))
+ref_out: (tensor([[ 70.,  77.,  84.,  91.,  98.],
+        [190., 213., 236., 259., 282.],
+        [310., 349., 388., 427., 466.]], device='cuda:0',
+       grad_fn=<AddBackward0>), tensor([[  0.,   1.,   4.,   9.,  16.],
+        [ 25.,  36.,  49.,  64.,  81.],
+        [100., 121., 144., 169., 196.],
+        [225., 256., 289., 324., 361.]], device='cuda:0',
+       grad_fn=<MulBackward0>))
+torch.mm(tensor_A, tensor_B): tensor([[ 70.,  76.,  82.,  88.,  94.],
+        [190., 212., 234., 256., 278.],
+        [310., 348., 386., 424., 462.]], device='cuda:0',
+       grad_fn=<MmBackward0>)
+
+Seems to be accessing illegal memory.
+"""
+
 def f(a, b, c, x):
     # TODO: figure out how to extract alpha and beta
     o1 = torch.mm(a, b) + c
