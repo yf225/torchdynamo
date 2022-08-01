@@ -110,7 +110,7 @@ def {{kernel_name}}(
     arguments = rt.GemmArguments()
     arguments.problem_size = rt.GemmCoord(M, N, K)
     arguments.output_op.alpha = 1.0  # TODO(yf225): pass in from outside
-    if bias is not None:
+    if tensor_C is not None:
         arguments.output_op.beta = 1.0  # TODO(yf225): pass in from outside
     else:
         arguments.output_op.beta = 0.0
