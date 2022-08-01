@@ -27,12 +27,13 @@ prebuilt_gemm = None
 
 # TODO(yf225): add autotuning and kernel selection
 def compile_cuda_module(
-    {% for i in template_inout_argdefs %}
-    {{i}},
-    {% endfor %}
+    tensor_A,
+    tensor_B,
     M,
     N,
     K,
+    tensor_C,
+    gemm_bias_out,
 ):
     global prebuilt_gemm
 
@@ -68,6 +69,7 @@ def compile_cuda_module(
     return prebuilt_gemm
 
 
+# Formula: D = alpha * (A @ B) + beta * C
 def {{kernel_name}}(
     {% for i in template_inout_argdefs %}
     {{i}},
@@ -81,6 +83,11 @@ def {{kernel_name}}(
     {% endfor %}
 ):
     global stream_dict
+
+    tensor_A = {{template_inout_argdefs[0]}}
+    tensor_B = {{template_inout_argdefs[1]}}
+    tensor_C = {{extra_argdefs[0]}}
+    gemm_bias_out = {{out_def}}
 
     gemm = compile_cuda_module(
         tensor_A,
@@ -99,11 +106,6 @@ def {{kernel_name}}(
         # for easier control.
         stream_dict["cutlass_stream"] = torch.cuda.Stream()
     cuda_stream_ptr = stream_dict["cutlass_stream"].cuda_stream
-
-    # Formula: D = alpha * (A @ B) + beta * C
-    # # TODO(yf225): for some weird reason, no matter what bias tensor we pass into the following GEMM operation,
-    # # it will not be used. We need to debug this.
-    # tensor_C = torch.arange(M*N, device='cuda', dtype=tensor_A.dtype).view(M, N)
 
     arguments = rt.GemmArguments()
     arguments.problem_size = rt.GemmCoord(M, N, K)
