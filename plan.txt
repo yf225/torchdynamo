@@ -37,7 +37,7 @@ export PYTHONPATH=/fsx/users/${USER}/cutlass/tools/library/scripts:$PYTHONPATH
 #
 # Step 3: Set up torchbench
 # cd /fsx/users/${USER}
-# git clone https://github.com/fairinternal/torchbench
+# git clone https://github.com/yf225/torchbench
 # cd /fsx/users/${USER}/torchbench
 # python install.py
 #
@@ -60,11 +60,11 @@ export PYTHONPATH=/fsx/users/${USER}/cutlass/tools/library/scripts:$PYTHONPATH
 cd /fsx/users/${USER}/torchdynamo_yf225
 
 # Training
-./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor --training  # TorchInductor + Triton
-./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser --training  # NVFuser
+python3 ./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --inductor --training  # TorchInductor + Triton
+python3 ./benchmarks/torchbench.py -dcuda --inductor-settings --float32 -n50 --backend=cudagraphs_ts --nvfuser --training  # NVFuser
 
 # Inference
-./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --inductor  # TorchInductor + Triton
-./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --backend=cudagraphs_ts --nvfuser  # NVFuser
-./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --speedup-trt  # TensorRT (no TorchDynamo)
-./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --speedup-fx2trt-fp16  # FX to TensorRT (use TorchDynamo)
+python3 ./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --inductor  # TorchInductor + Triton
+python3 ./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --backend=cudagraphs_ts --nvfuser  # NVFuser
+python3 ./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --speedup-trt  # TensorRT (no TorchDynamo)
+python3 ./benchmarks/torchbench.py -dcuda --inductor-settings --float16 -n50 --speedup-fx2trt-fp16  # FX to TensorRT (use TorchDynamo)

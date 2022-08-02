@@ -329,6 +329,7 @@ def speedup_experiment(args, model_iter_fn, model, example_inputs):
             is_correct = is_correct and same(expected_output, actual_output)
     pvalue = ttest_ind(timings[:, 0], timings[:, 1]).pvalue
     median = np.median(timings, axis=0)
+    print(f"example_inputs: {example_inputs}")
     print(f"original iter time (ms): {median[0] * 1000}")
     print(f"speedup iter time (ms): {median[1] * 1000}")
     speedup = median[0] / median[1]
