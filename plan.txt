@@ -48,7 +48,7 @@ export PYTHONPATH=/fsx/users/${USER}/cutlass/tools/library/scripts:$PYTHONPATH
 # pip install cmake
 # pip install -e .
 #
-# Step 5: Install tensorrt and torch_tensorrt (for inference experiments)
+# Step 5: Install tensorrt and torch_tensorrt (optional, for inference experiments)
 # pip install --upgrade setuptools pip
 # pip install nvidia-pyindex
 # pip install --upgrade nvidia-tensorrt
