@@ -26,20 +26,28 @@ export CUDACXX=${CUDA_INSTALL_PATH}/bin/nvcc
 export PYTHONPATH=/fsx/users/${USER}/cutlass/tools/library/scripts:$PYTHONPATH
 
 # Step 1: Set up conda environment
-# pip3 install --pre torch torchtext torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/nightly/cu113
+# pip3 uninstall torch torchtext torchvision torchaudio
+# pip3 install --pre torch --extra-index-url https://download.pytorch.org/whl/nightly/cu113
 #
-# Step 2: Install torchdynamo
+# Step 2-1: Install torchdynamo
 # cd /fsx/users/${USER}
 # git clone https://github.com/yf225/torchdynamo -b inductor
 # cd /fsx/users/${USER}/torchdynamo_yf225
 # pip install -r requirements.txt
-# python setup.py develop
+# python3 setup.py develop
+#
+# Step 2-2: Install functorch
+# cd /fsx/users/${USER}
+# rm -rf /fsx/users/${USER}/functorch
+# git clone https://github.com/pytorch/functorch
+# cd /fsx/users/${USER}/functorch
+# python3 setup.py install
 #
 # Step 3: Set up torchbench
 # cd /fsx/users/${USER}
 # git clone https://github.com/yf225/torchbench
 # cd /fsx/users/${USER}/torchbench
-# python install.py
+# python3 install.py
 #
 # Step 4: Install triton
 # cd /fsx/users/${USER}
